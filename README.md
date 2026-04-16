@@ -1,5 +1,29 @@
 # movie-recomendation
 
+## Setting up your environment `venv`
+In order to isolate dependencies on your machine, use a python virtual environment (venv)
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+Once inside the virtual environment, install the project dependencies:
+```bash
+pip install -r requirements.txt
+```
+If you add a new dependency to the project, just add the package name to the requirements.txt file
+
+After your first setup, you just need to run 
+```bash 
+source venv/bin/activate
+```
+when you start working, and 
+```bash
+pip install -r requirements.txt
+```
+when a new dependency is added to the project
+
+
 ## `MovieData.py` usage
 
 This class loads in and handles most of the tedious backend for having the dataset in a "usable" state. To use the class simply do:

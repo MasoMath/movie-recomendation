@@ -1,0 +1,6 @@
+numpy
+matplotlib
+torch
+tensorboard
+jupyterlab
+kagglehub
