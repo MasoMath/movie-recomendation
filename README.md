@@ -58,3 +58,15 @@ md.entry_as_list('cast',0)
 # returns the all casts members (actors) for all movies
 md.entry_as_list('cast')
 ```
+
+
+
+## `streamlit` Frontend
+To test out the frontend, navigate to
+```bash
+movie-recommendation/frontend/
+```
+and run
+```bash
+streamlit run app.py
+```
