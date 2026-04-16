@@ -2,3 +2,4 @@ kaggledata/*
 testing_files/*
 venv/*
 .env
+frontend/__pycache__/
