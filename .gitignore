@@ -1,3 +1,4 @@
 kaggledata/*
 testing_files/*
 venv/*
+.env
