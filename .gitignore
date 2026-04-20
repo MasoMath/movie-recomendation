@@ -2,7 +2,7 @@ kaggledata/*
 testing_files/*
 venv/*
 .env
-frontend/__pycache__/
+/**/__pycache__/
 /**/.DS_Store
 /**/.virtual_documents/*
 /**/.ipynb_checkpoints/*
