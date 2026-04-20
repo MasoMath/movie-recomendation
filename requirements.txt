@@ -1,0 +1,9 @@
+numpy
+matplotlib
+torch
+tensorboard
+jupyterlab
+kagglehub
+streamlit
+python-dotenv
+requests
