@@ -7,3 +7,4 @@ kagglehub
 streamlit
 python-dotenv
 requests
+spacy
