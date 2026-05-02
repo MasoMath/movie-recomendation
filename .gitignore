@@ -6,3 +6,4 @@ venv/*
 /**/.DS_Store
 /**/.virtual_documents/*
 /**/.ipynb_checkpoints/*
+/**/similarity_matrices/*
