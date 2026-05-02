@@ -91,9 +91,9 @@ def semantic_similarity_plot(row1, row2, attribute='genres', similarity_matrix=N
     avg_similarity = (np.sum(similarity) / similarity.size).item()
 
     if attribute=='genres':
-        attributelist = md.get_genres()
+        attributelist = moviedata.get_genres()
     elif attribute=='keywords':
-        attributelist = md.get_keywords()
+        attributelist = moviedata.get_keywords()
     
     fig, ax = plt.subplots()
     cax = ax.matshow(similarity)
