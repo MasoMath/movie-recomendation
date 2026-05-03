@@ -45,7 +45,8 @@ The categorical data stored in the "clean data" lists of `int`s. These `int`s co
 all_genres = md.get_genres() 
 >>> array(['Action', 'Adventure', etc...], dtype='<U15')
 
-tdkr = md.entry_as_list('genres', 3)
+tdkr = md.find_movies('The Dark Knight Rises')['genres'] # by name
+tdkr = md.find_movies(3)['genres'] # or by (row) index
 >>> [0, 4, 5, 6]
 
 all_genres[tdkr]
@@ -64,22 +65,37 @@ To obtain the different list call a getter method. A copy of original movie and 
 - production_countries
 - spoken_languages
 
-in the clean data are stored as strings. To access them, you will need to specifically call the `entry_as_list()` function. This will return an entry in a column as as list or if you don't provide a specific row number it will return the entire column as a `pandas.Series` object. eg:
+in the clean data are stored as lists of ints. Previously, these were strings. There is no longer a specific function needed to access them. `entry_as_list()` was needed previously to access these values as a `list` object, but is now deprecated. `entry_as_list()` still functions as previous versions.
 
 ```python
 # returns all cast members (actors) in the first movie (Avatar 2009)
 md.entry_as_list('cast',0)
+>>> Deprecation Warning
 >>> [0,1,2,3,4,5,etc...]
 
 # returns the all casts members (actors) for all movies
 md.entry_as_list('cast')
+>>> Deprecation Warning
 >>> pandas.Series
 ```
 
+To extract movie(s) by row index or name call `find_movies()`. This returns the entire row(s) associated with these movies. The argument of `find_movies()` can be `int`s, `str`s, or `list`s of entirely `int`s OR entirely `str`s.
 
+```python
+# Get the row associated with The Dark Knight Rises
+md.find_movies('The Dark Knight Rises')
+md.find_movies(3) 
+>>> row associated with The Dark Knight Rises
 
+# Get the pandas.DataFrame containing the rows of Avatar and Star Wars
+md.find_movies(['Avatar', 'Star Wars'])
+md.find_movies([0, 2912])
+>>> pandas.DataFrame containing Avatar and Star Wars
 
-
+# Only returns row with Avatar, as 'Star wars' is a typo
+md.find_movies(['Avatar', 'Star wars'])
+>>> row associated with The Avatar
+```
 
 ## `streamlit` Frontend
 To test out the frontend, navigate to
