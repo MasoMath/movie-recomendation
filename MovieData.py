@@ -1,4 +1,3 @@
-# from numpy import array
 import numpy as np
 import pandas as pd
 import ast
@@ -17,21 +16,13 @@ class MovieData:
         self._og_movie_data = pd.read_csv(path_to_movie)
         self._og_credits_data = pd.read_csv(path_to_credits)
 
-        # Merge datasets on movie ID and drop unneeded metadata columns
-        # self._clean_data = self._og_movie_data.merge(
-        #     self._og_credits_data,
-        #     how='inner', left_on='id', right_on='movie_id'
-        #     ).drop(columns=[
-        #         'homepage', 'overview', 'status', 'tagline',
-        #         'title_x', 'title_y', 'movie_id'
-        #     ]
-        # )
-
+        # extracts df data that is already numeric
         df_non_cat_data = self._og_movie_data[[
             'id','original_title','budget','original_language','popularity',
             'release_date','revenue','runtime','vote_average','vote_count'
         ]]
-                
+        
+        # converts categorical data into int data
         df_gkp, self._dict_gkp = self._clean_dataframe(
             self._og_movie_data,
             ['genres','keywords','production_companies']
@@ -48,6 +39,7 @@ class MovieData:
         df_crew, self._dict_crew = self._clean_director(
             self._og_credits_data,['crew']
         )
+        # merges above cleaned df slices into 1 df
         df = df_gkp.merge(df_cl).merge(
             df_cast.merge(df_crew),left_on='id',right_on='movie_id'
         ).drop(columns=['movie_id'])
@@ -68,6 +60,7 @@ class MovieData:
     def get_spoken_lang_names(self):    return np.array(self._dict_cl['spoken_languages'])
     def get_actors(self):               return np.array(self._dict_cast['cast'])
     def get_directors(self):            return np.array(self._dict_crew['crew'])
+    def get_movies(self):               return self._clean_data['original_title']
 
     def save_csv(self, file_path):
         """
@@ -77,36 +70,57 @@ class MovieData:
 
     def entry_as_list(self, col_name, row_num=None):
         """
-            Returns a "list stored as a string" as a list object.
+            DEPRECATED. Returns a "list stored as a string" as a list object.
+            
+            This function is no longer needed as data is now pre-parsed.
+            It will be removed in a future version.
 
             Args:
-                col_name (str): The name of the column to process
-                    The only columns that need this are:
-                    'genres', 'keywords', 'production_companies', 'production_countries', 
-                    'spoken_languages', 'cast', or 'crew'.
+                col_name (str): The name of the column to process.
                 row_num (int, optional): The specific index of the row to convert. 
-                    If None (default), the operation is applied to the entire column.
 
             Returns:
-                list or pandas.Series: 
-                    - A single list (or list of dicts) if `row_num` is provided.
-                    - A pandas.Series of lists if `row_num` is None.
-
-            Raises:
-                ValueError: If the string content is not a valid Python literal.
-                KeyError: If `col_name` does not exist in the underlying data.
-                IndexError: If `row_num` is out of bounds.
-
-            Example:
-                >>> # Get all genres as lists
-                >>> df_helper.entry_as_list('genres')
-                >>> # Get the cast list for the first movie only
-                >>> df_helper.entry_as_list('cast', row_num=0)
-            """
+                list or pandas.Series: The requested data.
+        """
+        import warnings
+        warnings.warn(
+            "entry_as_list() is no longer needed and will be removed in a future update." +
+            "\nCall find_movies() or index the get_data() DataFrame directly",
+            DeprecationWarning,
+            stacklevel=2
+        )
         if row_num is not None:
-            return ast.literal_eval(self._clean_data[col_name][row_num])
-        return self._clean_data[col_name].apply(ast.literal_eval)
+            return self.get_data()[col_name][row_num]
+        return self.get_data()[col_name]
         
+    def find_movies(self,movies):
+        """
+            Finds movies by title (str) or by row index (int).
+
+            Args:
+                movies (str, int, or list): A single title, a single row index, 
+                    or a list containing either titles or indices.
+
+            Returns:
+                pandas.DataFrame: A subset of the original DataFrame containing 
+                    only the rows that match the provided titles exactly.
+
+                    If str are provided and a movie is not present or has a typo,
+                    the movie is not returned.
+                    
+            Example:
+                >>> MovieData.find_movies("The Dark Knight Rises")
+                >>> MovieData.find_movies(["Avatar", "Titanic"])
+                >>> MovieData.find_movies(3)
+                >>> MovieData.find_movies([0, 25])
+        """
+        if isinstance(movies,(str, int)): movies = [movies]
+        if isinstance(movies[0], int):
+            return self._clean_data.iloc[movies]
+        else:
+            return self._clean_data.loc[
+                self._clean_data['original_title'].isin(movies)
+            ]
 
     @staticmethod
     def _clean_dataframe(df, col_names, id='id'):
@@ -136,7 +150,7 @@ class MovieData:
                     row_ids.append(name_to_id[name])
                 return str(row_ids)
 
-            df_clean[col] = df[col].apply(process_cell)
+            df_clean[col] = df[col].apply(process_cell).apply(ast.literal_eval)
             id_map[col] = names_present
             
         return df_clean, id_map
@@ -177,7 +191,7 @@ class MovieData:
                     row_ids.append(name_to_id[name])
                 return str(row_ids)
 
-            df_clean[col] = df[col].apply(process_cell)
+            df_clean[col] = df[col].apply(process_cell).apply(ast.literal_eval)
             id_map[col] = names_present
             id_map['iso_'+col] = codes_present         
         return df_clean, id_map
@@ -212,42 +226,8 @@ class MovieData:
                         row_ids.append(name_to_id[name])
                 return str(row_ids)
 
-            df_clean[col] = df[col].apply(process_cell)
+            df_clean[col] = df[col].apply(process_cell).apply(ast.literal_eval)
             id_map[col] = names_present
         return df_clean, id_map
 
-    @staticmethod
-    def _list_to_dict(id_key, name_key, data):
-        """
-            Converts a list of dicts into a single dict
-            mapping a specific ID to a Name.
-        """
-        import warnings
-        warnings.warn(
-                'Deprecated: This function no longer serves a purpose',
-                category=DeprecationWarning,
-                stacklevel=2
-            )
-        return {item[id_key]: item[name_key] for item in data}
     
-    @staticmethod
-    def _sync_and_map(string_list, id_dict):
-        """
-            Maps strings to existing integer IDs or creates new ones.
-            Returns a mapping of IDs found/created for the input strings.
-        """
-        import warnings
-        warnings.warn(
-                'Deprecated: This function no longer serves a purpose',
-                category=DeprecationWarning,
-                stacklevel=2
-            )
-        existing_values = {v: k for k, v in id_dict.items()}
-        next_id = max(id_dict.keys(), default=0) + 1
-        for s in string_list:
-            if s not in existing_values:
-                id_dict[next_id] = s
-                existing_values[s] = next_id
-                next_id += 1
-        result_dict = {existing_values[s]: s for s in string_list}
-        return result_dict
