@@ -97,7 +97,19 @@ md.find_movies(['Avatar', 'Star wars'])
 >>> row associated with The Avatar
 ```
 
-## `streamlit` Frontend
+## `svelte` Frontend
+To test out the frontend, navigate to
+```bash
+  movie-recommendation/frontend/
+```
+and run
+
+```bash
+  npm install
+  npm run dev
+```
+
+## `streamlit` Frontend (NOW DEPRECATED)
 To test out the frontend, navigate to
 ```bash
 movie-recommendation/frontend/
