@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+source venv/bin/activate
+pip install -r requirements.txt
+
 cd backend && flask --app server.py --debug run &
 BACK_PID=$!
 
