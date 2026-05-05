@@ -97,6 +97,15 @@ md.find_movies(['Avatar', 'Star wars'])
 >>> row associated with The Avatar
 ```
 
+## Running the app
+You can run the app with one script, even right after cloning. pip, bash and npm are the only dependencies!
+
+From inside `movie-recommendation` run:
+```bash
+./start-app.sh
+```
+This will `pip` install the dependencies, `source` the venv, `npm run` the frontend and `flask run` the backend
+
 ## `svelte` Frontend
 To test out the frontend, navigate to
 ```bash
@@ -109,12 +118,13 @@ and run
   npm run dev
 ```
 
-## `streamlit` Frontend (NOW DEPRECATED)
-To test out the frontend, navigate to
+## `flask` Backend
+To test out the backend, navigate to
 ```bash
-movie-recommendation/frontend/
+  movie-recommendation/backend/
 ```
 and run
 ```bash
-streamlit run app.py
+  source ../venv/bin/activate
+  ./startserver.sh
 ```
