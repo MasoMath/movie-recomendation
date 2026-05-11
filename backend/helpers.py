@@ -4,6 +4,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 #^this is just so that I don't have to move around the files to access MovieData
 from MovieData import MovieData
 from dataclasses import dataclass
+import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 
@@ -102,15 +103,26 @@ def hydrate_movie_by_title(title: str) -> HydratedMovie:
         poster_url=poster_url
     )
 
-def fake_ml_model(movie_input: str) -> list[MovieIdAndScore]:
-    num_recommendations = 10
-    random_ids = random.sample(all_movie_ids, num_recommendations)
-    print(random_ids)
-    return [MovieIdAndScore(id=m_id, score=round(random.random(), 3)) for m_id in random_ids]
+def cast_director_recommend(movie_input: str, k: int = 10) -> list[MovieIdAndScore]:
+    """Return top-k cast+director-similar movies for a given title."""
+    matches = movie_data_instance.find_movies(movie_input)
+    if matches.empty:
+        return []
+    query_tmdb_id = int(matches.iloc[0]['id'])
+    query_pos = tmdb_id_to_pos.get(query_tmdb_id)
+    if query_pos is None:
+        return []
+    sims = cast_director_matrix[query_pos].copy()
+    sims[query_pos] = -1  # exclude self
+    top_pos = np.argpartition(-sims, k)[:k]
+    top_pos = top_pos[np.argsort(-sims[top_pos])]
+    return [
+        MovieIdAndScore(id=int(pos_to_tmdb_id[p]), score=float(sims[p]))
+        for p in top_pos
+    ]
 
 def send_input_to_model(movie_input: str) -> list[MovieIdAndScore]:
-    movies = fake_ml_model(movie_input)
-    return movies
+    return cast_director_recommend(movie_input)
 
 movie_data_instance = MovieData(
     path_to_movie='../kaggledata/tmdb_5000_movies.csv',
@@ -120,10 +132,19 @@ movie_data_instance = MovieData(
 all_movie_ids = movie_data_instance.get_data()['id'].tolist()
 
 df = movie_data_instance.get_data()
+# Positional-index <-> TMDB-id mapping (matrix uses positional, df uses TMDB id below)
+_tmdb_ids_in_order = df['id'].values
+tmdb_id_to_pos = {int(tid): i for i, tid in enumerate(_tmdb_ids_in_order)}
+pos_to_tmdb_id = np.asarray(_tmdb_ids_in_order, dtype=np.int64)
+
 df.set_index('id', drop=False, inplace=True)
 genres_arr = movie_data_instance.get_genres()
 actors_arr = movie_data_instance.get_actors()
 directors_arr = movie_data_instance.get_directors()
+
+cast_director_matrix = np.load(
+    os.path.join(os.path.dirname(__file__), '..', 'similarity_matrices', 'cast_director.npy')
+)
 
 all_movie_posters = {}
 

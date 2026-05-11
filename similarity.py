@@ -55,6 +55,35 @@ def semantic_similarity(row1, row2=None, attribute='genres', similarity_matrix=N
             all_similarities.append((np.sum(similarity) / similarity.size).item())
         return pd.Series(all_similarities, index=attributelist.index)
 
+## Cast & Director Similarity (TF-IDF cosine, ECLAT-style precomputed matrix)
+def cast_director_similarity(row1, row2=None, similarity_matrix=None, moviedata=None):
+    """
+    Returns the cast + director similarity between movies, from a precomputed M x M matrix.
+    Args:
+        row1 (int): The positional index of movie 1.
+        row2 (int, optional): The positional index of movie 2.
+            If None (default), the similarity is calculated between movie 1 and all others.
+        similarity_matrix (np.array, optional): The loaded (N_movies, N_movies) cosine matrix.
+            If None (default), it is loaded from 'similarity_matrices/cast_director.npy'.
+        moviedata (MovieData, optional): Only used when row2 is None, to index the returned Series.
+    Note: for repeated calls, load the matrix and moviedata ahead of time and pass them in.
+
+    Returns:
+        float if row2 is an int: the cast+director cosine similarity between the two movies.
+        pandas.Series if row2 is None: similarities to all movies, indexed positionally.
+    """
+    if similarity_matrix is None:
+        similarity_matrix = np.load('similarity_matrices/cast_director.npy')
+
+    if row2 is not None:
+        return float(similarity_matrix[row1, row2])
+
+    if moviedata is None:
+        moviedata = MovieData()
+    sims = similarity_matrix[row1]
+    return pd.Series(sims, index=moviedata.get_data().reset_index(drop=True).index)
+
+
 ## Plot Semantic Similarity
 def semantic_similarity_plot(row1, row2, attribute='genres', similarity_matrix=None, moviedata=None, savepath=None):
     """
