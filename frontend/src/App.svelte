@@ -1,8 +1,7 @@
 <script lang="ts">
-    import valid_movies from "./assets/valid_movies.json";
     import './app.css';
-    import { normalize } from './lib/utils';
-    import type { GraphNode, GraphLink } from './lib/types';
+    import { HydratedMovies } from './lib/utils';
+    import type { GraphNode, GraphLink, SearchPayload } from './lib/types';
     
     import SearchBar from './components/SearchBar.svelte';
     import ForceGraph from './components/ForceGraph.svelte';
@@ -13,17 +12,7 @@
     let links: GraphLink[] = [];
     let selectedMovie: GraphNode | null = null;
 
-    const validMoviesArray: string[] = valid_movies as string[];
-    const validMovies = new Map<string,string>(validMoviesArray.map(m => [normalize(m), m]));
-
-    async function handleSearch(payload: {query: string}): Promise<void> {
-        const searchQuery = payload.query;
-        const movie: string | undefined = validMovies.get(normalize(searchQuery));
-        
-        if (!movie) {
-            errorMessage = "Movie not found in dataset.";
-            return;
-        }
+    async function handleSearch(payload: SearchPayload): Promise<void> {
         errorMessage = '';
 
         try {
@@ -32,18 +21,19 @@
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ query: movie })
+                body: JSON.stringify(payload)
             });
 
             if(!server_response.ok) {
                 throw new Error(`Request failed: ${server_response.status}`);
             }
 
-            const parsed = await server_response.json();
+            const parsed_json = await server_response.json();
+            const zod_parsed = HydratedMovies.parse(parsed_json);
             
-            const centerMovie = parsed[0];
-            const recMovies = parsed.slice(1);
-            
+            const centerMovie = zod_parsed[0];
+            const recMovies = zod_parsed.slice(1);
+
             nodes = [
                 { 
                     id: 'center', 
@@ -89,4 +79,3 @@
         <MovieModal {selectedMovie} on:close={() => selectedMovie = null} />
     {/if}
 </div>
-
