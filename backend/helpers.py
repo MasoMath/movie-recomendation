@@ -1,5 +1,6 @@
 import os, sys, random, requests
 
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 #^this is just so that I don't have to move around the files to access MovieData
 
@@ -108,7 +109,7 @@ def hydrate_input_movies(input_movies: list[str]) -> list[HydratedMovie]:
 def fake_ml_model(movie_input: InputFormatted) -> list[MovieIdAndScore]:
     num_recommendations = 10
     random_ids = random.sample(all_movie_ids, num_recommendations)
-    print(random_ids)
+    #print(random_ids)
     return [MovieIdAndScore(id=m_id, score=round(random.random(), 3)) for m_id in random_ids]
 
 def send_input_to_model(movie_input: InputFormatted) -> list[MovieIdAndScore]:

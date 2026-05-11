@@ -1,11 +1,12 @@
 <script lang="ts">
     import './app.css';
-    import { HydratedMovies } from './lib/utils';
+    import { ServerPayload} from './lib/utils';
     import type { GraphNode, GraphLink, SearchPayload } from './lib/types';
     
     import SearchBar from './components/SearchBar.svelte';
     import ForceGraph from './components/ForceGraph.svelte';
     import MovieModal from './components/MovieModal.svelte';
+    import { ZodError } from 'zod/v3';
 
     let errorMessage: string = '';
     let nodes: GraphNode[] = [];
@@ -29,24 +30,29 @@
             }
 
             const parsed_json = await server_response.json();
-            const zod_parsed = HydratedMovies.parse(parsed_json);
+            const zod_parsed = ServerPayload.safeParse(parsed_json);
+
+            if(!zod_parsed.success){
+                throw new Error("Zod failed to validate response structure");
+            }
             
-            const centerMovie = zod_parsed[0];
-            const recMovies = zod_parsed.slice(1);
+            const input_movies_hydrated = zod_parsed.data.input_movies;
+            const recommended_movies_hydrated = zod_parsed.data.recommended_movies;
+            
 
             nodes = [
                 { 
                     id: 'center', 
-                    title: centerMovie.title, 
+                    title: input_movies_hydrated[0].title, 
                     isCenter: true,
-                    score: centerMovie.score,
-                    directors: centerMovie.directors,
-                    cast: centerMovie.cast,
-                    release_date: centerMovie.release_date,
-                    genres: centerMovie.genres,
-                    poster_url: centerMovie.poster_url
+                    score: input_movies_hydrated[0].score,
+                    directors: input_movies_hydrated[0].directors,
+                    cast: input_movies_hydrated[0].cast,
+                    release_date: input_movies_hydrated[0].release_date,
+                    genres: input_movies_hydrated[0].genres,
+                    poster_url: input_movies_hydrated[0].poster_url
                 },
-                ...recMovies.map((d: any) => ({
+                ...recommended_movies_hydrated.map((d: any) => ({
                     id: d.id,
                     title: d.title,
                     score: d.score,
@@ -59,7 +65,7 @@
                 }))
             ];
 
-            links = recMovies.map((d: any) => ({
+            links = recommended_movies_hydrated.map((d: any) => ({
                 source: 'center',
                 target: d.id,
                 score: d.score

@@ -8,10 +8,14 @@ const HydratedMovie = z.object({
     cast: z.array(z.string()),
     release_date: z.string(),
     directors: z.array(z.string()),
-    poster_url: z.string(),
+    poster_url: z.string().nullable(),
 });
 
-export const HydratedMovies = z.array(HydratedMovie);
+export const ServerPayload = z.object({
+    input_movies: z.array(HydratedMovie),
+    recommended_movies: z.array(HydratedMovie),
+});
+
 
 
 
