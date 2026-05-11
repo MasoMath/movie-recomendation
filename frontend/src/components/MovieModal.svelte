@@ -1,0 +1,89 @@
+<script lang="ts">
+    import type { GraphNode } from '../lib/types';
+    import { createEventDispatcher } from 'svelte';
+
+    export let selectedMovie: GraphNode;
+    
+    const dispatch = createEventDispatcher();
+
+    function closeModal() {
+        dispatch('close');
+    }
+</script>
+
+<div class="modal-backdrop" on:click|self={closeModal} on:keydown|self={(e) => e.key === 'Escape' && closeModal()} tabindex="0" role="button">
+    <div class="modal-content" role="dialog" aria-modal="true">
+        <button class="close-btn" on:click={closeModal} aria-label="Close modal">&times;</button>
+        <h2>{selectedMovie.title}</h2>
+        <div class="modal-body">
+            <p><strong>Score:</strong> {selectedMovie.score}</p>
+            {#if selectedMovie.directors && selectedMovie.directors.length > 0}
+                <p><strong>Director:</strong> {selectedMovie.directors.join(', ')}</p>
+            {/if}
+            {#if selectedMovie.release_date}
+                <p><strong>Release Date:</strong> {selectedMovie.release_date}</p>
+            {/if}
+            {#if selectedMovie.genres && selectedMovie.genres.length > 0}
+                <p><strong>Genres:</strong> {selectedMovie.genres.join(', ')}</p>
+            {/if}
+            {#if selectedMovie.cast && selectedMovie.cast.length > 0}
+                <p><strong>Cast:</strong> {selectedMovie.cast.join(', ')}</p>
+            {/if}
+        </div>
+    </div>
+</div>
+
+<style>
+.modal-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+}
+
+.modal-content {
+  background-color: #1a1a1a;
+  color: #e5e5e5;
+  padding: 30px;
+  border-radius: 8px;
+  border: 1px solid #8b0000;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.9);
+  width: 400px;
+  max-width: 90%;
+  position: relative;
+}
+
+.close-btn {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #8b0000;
+  cursor: pointer;
+  padding: 0;
+}
+
+.close-btn:hover {
+  color: #ff4d4d;
+}
+
+.modal-body {
+  margin-top: 20px;
+}
+
+.modal-body p {
+  margin: 8px 0;
+}
+
+.modal-body strong {
+  color: #ffd700;
+}
+</style>
