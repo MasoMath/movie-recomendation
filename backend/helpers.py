@@ -103,8 +103,21 @@ def hydrate_movie_by_title(title: str) -> HydratedMovie:
         poster_url=poster_url
     )
 
-def cast_director_recommend(movie_input: str, k: int = 10) -> list[MovieIdAndScore]:
-    """Return top-k cast+director-similar movies for a given title."""
+# Weights for the blended score served by /api/recommend.
+# Sparse components (cast_director, production_companies) carry the bulk of the
+# weight because they have real zeros for unrelated movies. Dense components
+# (genre, keyword) are mean-centered at load time so they contribute signed
+# adjustments around zero instead of a flat ~0.4 baseline.
+SIMILARITY_WEIGHTS = {
+    'cast_director':        0.45,
+    'production_companies': 0.20,
+    'keyword':              0.20,
+    'genre':                0.15,
+}
+
+def blended_recommend(movie_input: str, k: int = 10) -> list[MovieIdAndScore]:
+    """Return top-k movies by the weighted blend of cast/director, production
+    companies, and (mean-centered) genre + keyword similarities."""
     matches = movie_data_instance.find_movies(movie_input)
     if matches.empty:
         return []
@@ -112,7 +125,12 @@ def cast_director_recommend(movie_input: str, k: int = 10) -> list[MovieIdAndSco
     query_pos = tmdb_id_to_pos.get(query_tmdb_id)
     if query_pos is None:
         return []
-    sims = cast_director_matrix[query_pos].copy()
+    sims = (
+        SIMILARITY_WEIGHTS['cast_director']        * cast_director_matrix[query_pos]
+        + SIMILARITY_WEIGHTS['production_companies'] * production_companies_matrix[query_pos]
+        + SIMILARITY_WEIGHTS['keyword']              * keywords_movie_matrix[query_pos]
+        + SIMILARITY_WEIGHTS['genre']                * genre_movie_matrix[query_pos]
+    ).copy()
     sims[query_pos] = -1  # exclude self
     top_pos = np.argpartition(-sims, k)[:k]
     top_pos = top_pos[np.argsort(-sims[top_pos])]
@@ -122,7 +140,7 @@ def cast_director_recommend(movie_input: str, k: int = 10) -> list[MovieIdAndSco
     ]
 
 def send_input_to_model(movie_input: str) -> list[MovieIdAndScore]:
-    return cast_director_recommend(movie_input)
+    return blended_recommend(movie_input)
 
 movie_data_instance = MovieData(
     path_to_movie='../kaggledata/tmdb_5000_movies.csv',
@@ -142,9 +160,18 @@ genres_arr = movie_data_instance.get_genres()
 actors_arr = movie_data_instance.get_actors()
 directors_arr = movie_data_instance.get_directors()
 
-cast_director_matrix = np.load(
-    os.path.join(os.path.dirname(__file__), '..', 'similarity_matrices', 'cast_director.npy')
-)
+_matrices_dir = os.path.join(os.path.dirname(__file__), '..', 'similarity_matrices')
+cast_director_matrix        = np.load(os.path.join(_matrices_dir, 'cast_director.npy'))
+production_companies_matrix = np.load(os.path.join(_matrices_dir, 'production_companies.npy'))
+genre_movie_matrix          = np.load(os.path.join(_matrices_dir, 'genre_movie.npy'))
+keywords_movie_matrix       = np.load(os.path.join(_matrices_dir, 'keywords_movie.npy'))
+
+# Mean-center the dense (SpaCy-derived) components per row so they contribute
+# signed adjustments around zero instead of a flat ~0.4 baseline that compresses
+# the blended score. Sparse components (cast_director, production_companies) are
+# left as-is because they already have real zeros for unrelated movies.
+genre_movie_matrix    -= genre_movie_matrix.mean(axis=1, keepdims=True)
+keywords_movie_matrix -= keywords_movie_matrix.mean(axis=1, keepdims=True)
 
 all_movie_posters = {}
 
