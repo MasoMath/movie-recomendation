@@ -65,17 +65,15 @@ To obtain the different list call a getter method. A copy of original movie and 
 - production_countries
 - spoken_languages
 
-in the clean data are stored as lists of ints. Previously, these were strings. There is no longer a specific function needed to access them. `entry_as_list()` was needed previously to access these values as a `list` object, but is now deprecated. `entry_as_list()` still functions as previous versions.
+in the clean data are stored as lists of ints. Previously, these were strings. There is no longer a specific function needed to access them. `entry_as_list()` was needed previously to access these values as a `list` object, but is now not needed. It is kept for backwards compatibility. `entry_as_list()` still functions as previous versions.
 
 ```python
 # returns all cast members (actors) in the first movie (Avatar 2009)
 md.entry_as_list('cast',0)
->>> Deprecation Warning
 >>> [0,1,2,3,4,5,etc...]
 
 # returns the all casts members (actors) for all movies
 md.entry_as_list('cast')
->>> Deprecation Warning
 >>> pandas.Series
 ```
 
