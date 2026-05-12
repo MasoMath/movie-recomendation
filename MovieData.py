@@ -69,6 +69,7 @@ class MovieData:
     def get_score(self):                return self._clean_data['vote_average'].to_numpy()
     def get_vote_count(self):           return self._clean_data['vote_count'].to_numpy()
     def get_tmbd_id(self):              return self._clean_data['id'].to_numpy()
+    def get_col(self,col):              return self._clean_data[col]
 
     def save_csv(self, file_path):
         """
