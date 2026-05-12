@@ -9,62 +9,56 @@ import matplotlib.pyplot as plt
 from MovieData import MovieData
 
 ## Semantic Similarity (for Genres and Keywords)
-def semantic_similarity(
-        row1, row2=None, attribute='genres',
-        similarity_matrix=None, moviedata=None):
+def semantic_similarity(ids, row2=None, attribute='genres', similarity_matrix=None, moviedata=None):
     """
     Returns the similarity between the genres for a pair of movies
     Args:
-        row1 (int): The specific index of the row of the movie 1
+        ids (int, or list[int]): indicies for "movie 1"
         row2 (int, optional): The specific index of the row of movie 2
-            If None (default), the similarity is calculated between movie 1 and
-              all others in the database
-        attribute ('genres' or 'keywords'): which attribute to apply semantic
-          similarity to
+            If None (default), the similarity is calculated between movie 1 and all others in the database
+        attribute ('genres' or 'keywords'): which attribute to apply semantic similarity to
         similarity_matrix (np.array): The loaded semantic similarity matrix
             If None (default), the similarity matrix is loaded in the function
         moviedata (custom object): The loaded moviedata object
             If None (default), the moviedata object is created in the function
-    Note: for repeated function calls, it is reccomended to load in the
-            genre_matrix and moviedata ahead of time and pass the loaded objects
+    Note: for repeated function calls, it is reccomended to load in the genre_matrix and moviedata ahead of time
+            and pass the loaded objects
 
     Returns:
-        (float) if row2 == (int): the average semantic similarity of the
-          attribute between movie 1 and movie 2
-
-        (pandas.Series) if row2 is None: a pandas.Series of the average
-          similarity of the attribute between movie 1 and all others in the database
+        (list[float]) if row2 == (int): the average semantic similarities of the attribute between movie 1 ids and movie 2
+        (list[list]) if row2 == None: a list of lists of the average similarity of the attribute between movie 1 ids and all others in the database
+        Note: returned list has been "squeezed" to remove singleton dimension(s)
 
     Warning: If either movie has no listed genres, the similarity returned is NaN
     """
     if attribute not in ['genres', 'keywords']:
         error_text = attribute + ' is not valid semantic attribute.'
         raise ValueError(error_text)
-    
     if not np.any(similarity_matrix): 
-        if attribute=='genres':
-            similarity_matrix = np.loadtxt(
-                'similarity_matrices/genre.csv', delimiter=',')
+        if attribure=='genres':
+            similarity_matrix = np.loadtxt('similarity_matrices/genre.csv', delimiter=',')
         elif attribute=='keywords':
-            similarity_matrix = np.loadtxt(
-                'similarity_matrices/keywords.csv', delimiter=',')
-    if moviedata is None: moviedata = MovieData()
+            similarity_matrix = np.loadtxt('similarity_matrices/keywords.csv', delimiter=',')
+    if moviedata == None:
+        moviedata = MovieData()
 
-    attribute1 = moviedata.entry_as_list(attribute, row1)
-    
-    if row2:
-        attribute2 = moviedata.entry_as_list(attribute, row2)
-        similarity = similarity_matrix[np.ix_(attribute1, attribute2)]
-        return (np.sum(similarity) / similarity.size).item()
-    else:
-        attributelist = moviedata.entry_as_list(attribute)
-        all_similarities = []
-        for attribute2 in attributelist:
+    if type(ids) == int: ids = [ids] #make it a list if it's only 1 item
+    similarities= []
+    for row1 in ids:
+        attribute1 = moviedata.entry_as_list(attribute, row1)
+        
+        if row2:
+            attribute2 = moviedata.entry_as_list(attribute, row2)
             similarity = similarity_matrix[np.ix_(attribute1, attribute2)]
-            all_similarities.append(
-                (np.sum(similarity) / similarity.size).item())
-        return pd.Series(all_similarities, index=attributelist.index).to_numpy()
-        # remove to_numpy() if this breaks the code
+            similarities.append((np.sum(similarity) / similarity.size).item())
+        else:
+            attributelist = md.entry_as_list(attribute)
+            all_similarities = []
+            for attribute2 in attributelist:
+                similarity = similarity_matrix[np.ix_(attribute1, attribute2)]
+                all_similarities.append((np.sum(similarity) / similarity.size).item())
+            similarities.append(all_similarities)
+    return np.squeeze(similarities)
 
 ## Plot Semantic Similarity
 def semantic_similarity_plot(
