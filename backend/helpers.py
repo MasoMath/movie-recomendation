@@ -27,6 +27,7 @@ class HydratedMovie:
     cast: list[str]
     release_date: str
     directors: list[str]
+    production_companies: list[str]
     poster_url: str
 
 class Category(BaseModel):
@@ -38,6 +39,7 @@ class InputFormatted(BaseModel):
     actors: Category
     directors: Category
     genres: Category
+    production_companies: Category
     
 def format_raw_input(payload: dict) -> InputFormatted:
     return InputFormatted(**payload)
@@ -60,7 +62,12 @@ def _hydrate_movie_from_row(row, score: float) -> HydratedMovie:
     genre_names = genres_arr[row['genres']].tolist() if isinstance(row['genres'], list) else []
     cast_names = actors_arr[row['cast']].tolist() if isinstance(row['cast'], list) else []
     director_names = directors_arr[row['crew']].tolist() if isinstance(row['crew'], list) else []
-    
+    raw_pc = row["production_companies"] if "production_companies" in row.index else []
+    if isinstance(raw_pc, list) and len(raw_pc) > 0:
+        company_names = production_companies_arr[raw_pc].tolist()
+    else:
+        company_names = []
+
     release_date = str(row['release_date']) if pd.notna(row['release_date']) else "Unknown"
     movie_id = int(row['id'])
     
@@ -77,6 +84,7 @@ def _hydrate_movie_from_row(row, score: float) -> HydratedMovie:
         cast=cast_names,
         release_date=release_date,
         directors=director_names,
+        production_companies=company_names,
         poster_url=poster_url
     )
 
@@ -128,6 +136,7 @@ df.set_index('id', drop=False, inplace=True)
 genres_arr = movie_data_instance.get_genres()
 actors_arr = movie_data_instance.get_actors()
 directors_arr = movie_data_instance.get_directors()
+production_companies_arr = movie_data_instance.get_prod_companies()
 
 all_movie_posters = {}
 
