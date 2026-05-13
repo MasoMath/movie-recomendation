@@ -9,6 +9,10 @@
     function closeModal() {
         dispatch('close');
     }
+
+    $: companies = selectedMovie.production_companies ?? [];
+    $: companiesLabel = companies.length === 1 ? 'Production company' : 'Production companies';
+    $: companiesText = companies.length > 0 ? companies.join(', ') : 'Not listed in dataset';
 </script>
 
 <div class="modal-backdrop" on:click|self={closeModal} on:keydown|self={(e) => e.key === 'Escape' && closeModal()} tabindex="0" role="button">
@@ -23,6 +27,7 @@
             {#if selectedMovie.release_date}
                 <p><strong>Release Date:</strong> {selectedMovie.release_date}</p>
             {/if}
+            <p><strong>{companiesLabel}:</strong> {companiesText}</p>
             {#if selectedMovie.genres && selectedMovie.genres.length > 0}
                 <p><strong>Genres:</strong> {selectedMovie.genres.join(', ')}</p>
             {/if}

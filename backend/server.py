@@ -1,3 +1,6 @@
+import os
+import re
+
 from helpers import *
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -10,7 +13,24 @@ class Payload:
     recommended_movies: list[HydratedMovie]
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173"}})
+
+_env_origins = os.getenv("FLASK_CORS_ORIGINS", "").strip()
+if _env_origins:
+    _cors_origins = [o.strip() for o in _env_origins.split(",") if o.strip()]
+else:
+    _cors_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+    ]
+
+_localhost_any_port = re.compile(r"^http://(localhost|127\.0\.0\.1):\d+$")
+
+CORS(
+    app,
+    resources={r"/api/*": {"origins": _cors_origins + [_localhost_any_port]}},
+)
 
 @app.post("/api/recommend")
 def recommend_movie():
