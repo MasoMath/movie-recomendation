@@ -34,7 +34,6 @@ export const SEARCH_CATEGORY_KEYS = [
 
 export type SearchCategoryKey = (typeof SEARCH_CATEGORY_KEYS)[number];
 
-/** Labels for query summary / search UI */
 export const CATEGORY_DISPLAY_LABELS: Record<SearchCategoryKey, string> = {
     movies: 'Movies',
     actors: 'Actors',

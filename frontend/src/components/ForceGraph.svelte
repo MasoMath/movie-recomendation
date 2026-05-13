@@ -11,7 +11,6 @@
     let containerHeight: number;
     let simulation: d3.Simulation<GraphNode, GraphLink>;
 
-    /** Outer (recommended) poster card; center uses larger blank card */
     const OUT_W = 120;
     const OUT_H = 180;
     const CTR_W = 144;
@@ -36,39 +35,29 @@
         const centerY = containerHeight / 2;
         const padX = Math.max(90, CTR_W / 2 + 18);
 
-        nodes.forEach((n) => {
+        nodes.forEach(n => {
             if (n.x === undefined) n.x = centerX + (Math.random() - 0.5) * 50;
             if (n.y === undefined) n.y = centerY + (Math.random() - 0.5) * 50;
         });
 
-        const centerNode = nodes.find((n) => n.isCenter);
+        const centerNode = nodes.find(n => n.isCenter);
         if (centerNode) {
             centerNode.fx = centerX;
             centerNode.fy = centerY;
         }
 
-        simulation = d3
-            .forceSimulation<GraphNode, GraphLink>(nodes)
+        simulation = d3.forceSimulation<GraphNode, GraphLink>(nodes)
             .force('charge', d3.forceManyBody().strength(-2500))
-            .force(
-                'collide',
-                d3
-                    .forceCollide<GraphNode>()
-                    .radius((d) => (d.isCenter ? 158 : 130))
-                    .iterations(3)
-            )
-            .force(
-                'link',
-                d3
-                    .forceLink<GraphNode, GraphLink>(links)
-                    .id((d) => d.id as string)
-                    .distance((d) => (1 - d.score) * 500 + 250)
+            .force('collide', d3.forceCollide<GraphNode>().radius(d => d.isCenter ? 158 : 130).iterations(3))
+            .force('link', d3.forceLink<GraphNode, GraphLink>(links)
+                .id(d => d.id as string)
+                .distance(d => (1 - d.score) * 500 + 250)
             )
             .force('y', d3.forceY(centerY).strength(0.1))
             .force('x', d3.forceX(centerX).strength(0.01))
             .alphaDecay(0.02)
             .on('tick', () => {
-                nodes.forEach((d) => {
+                nodes.forEach(d => {
                     if (d.x !== undefined && d.y !== undefined) {
                         d.x = Math.max(menuWidth + padX, Math.min(containerWidth - padX, d.x));
                         d.y = Math.max(100, Math.min(containerHeight - 100, d.y));

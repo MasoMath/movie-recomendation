@@ -11,10 +11,8 @@
     }
 
     $: companies = selectedMovie.production_companies ?? [];
-    $: companiesLabel =
-        companies.length === 1 ? 'Production company' : 'Production companies';
-    $: companiesText =
-        companies.length > 0 ? companies.join(', ') : 'Not listed in dataset';
+    $: companiesLabel = companies.length === 1 ? 'Production company' : 'Production companies';
+    $: companiesText = companies.length > 0 ? companies.join(', ') : 'Not listed in dataset';
 </script>
 
 <div class="modal-backdrop" on:click|self={closeModal} on:keydown|self={(e) => e.key === 'Escape' && closeModal()} tabindex="0" role="button">

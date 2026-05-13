@@ -92,19 +92,19 @@
     <ForceGraph
         {nodes}
         {links}
-        onNodeClick={(node) => (selectedMovie = node)}
+        onNodeClick={(node) => selectedMovie = node}
         onCenterClick={() => {
             if (lastSearchPayload) inputsSummaryOpen = true;
         }}
     />
     {#if selectedMovie}
-        <MovieModal {selectedMovie} on:close={() => (selectedMovie = null)} />
+        <MovieModal {selectedMovie} on:close={() => selectedMovie = null} />
     {/if}
     {#if inputsSummaryOpen && lastSearchPayload}
         <InputsSummaryModal
             payload={lastSearchPayload}
             movieInputsHydrated={lastInputMoviesHydrated}
-            on:close={() => (inputsSummaryOpen = false)}
+            on:close={() => inputsSummaryOpen = false}
         />
     {/if}
 </div>

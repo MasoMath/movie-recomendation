@@ -1,21 +1,16 @@
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
-    import type { SearchPayload, SearchCategoryKey } from '../lib/types';
+    import type { SearchPayload } from '../lib/types';
     import { SEARCH_CATEGORY_KEYS, CATEGORY_DISPLAY_LABELS } from '../lib/types';
     import type { HydratedMovie } from '../lib/utils';
 
     export let payload: SearchPayload;
-    /** Same order as `payload.movies.items`; used for poster URLs */
     export let movieInputsHydrated: HydratedMovie[];
 
     const dispatch = createEventDispatcher();
 
     function closeModal() {
         dispatch('close');
-    }
-
-    function categoryBlock(key: SearchCategoryKey) {
-        return payload[key];
     }
 </script>
 
@@ -32,7 +27,7 @@
         <p class="subtitle">Weights and selections from your last search</p>
         <div class="modal-body">
             {#each SEARCH_CATEGORY_KEYS as key}
-                {@const cat = categoryBlock(key)}
+                {@const cat = payload[key]}
                 <section class="category-section">
                     <h3>
                         {CATEGORY_DISPLAY_LABELS[key]}
@@ -53,7 +48,7 @@
                                                     class="poster"
                                                 />
                                             {:else}
-                                                <div class="poster poster-placeholder" title="No poster"></div>
+                                                <div class="poster poster-placeholder"></div>
                                             {/if}
                                         </div>
                                         <span class="item-title">{title}</span>

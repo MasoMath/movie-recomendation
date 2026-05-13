@@ -62,7 +62,7 @@ def _hydrate_movie_from_row(row, score: float) -> HydratedMovie:
     genre_names = genres_arr[row['genres']].tolist() if isinstance(row['genres'], list) else []
     cast_names = actors_arr[row['cast']].tolist() if isinstance(row['cast'], list) else []
     director_names = directors_arr[row['crew']].tolist() if isinstance(row['crew'], list) else []
-    raw_pc = row["production_companies"] if "production_companies" in row.index else []
+    raw_pc = row['production_companies'] if 'production_companies' in row.index else []
     if isinstance(raw_pc, list) and len(raw_pc) > 0:
         company_names = production_companies_arr[raw_pc].tolist()
     else:

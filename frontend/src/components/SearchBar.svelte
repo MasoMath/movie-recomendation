@@ -25,9 +25,7 @@
     const validActors = new Map<string, string>(validActorsArray.map(a => [normalize(a), a]));
     const validDirectors = new Map<string, string>(validDirectorsArray.map(d => [normalize(d), d]));
     const validGenres = new Map<string, string>(validGenresArray.map(g => [normalize(g), g]));
-    const validProductionCompanies = new Map<string, string>(
-        validProductionCompaniesArray.map((c) => [normalize(c), c])
-    );
+    const validProductionCompanies = new Map<string, string>(validProductionCompaniesArray.map(c => [normalize(c), c]));
 
     const validationMaps: Record<SearchCategoryKey, Map<string, string>> = {
         movies: validMovies,

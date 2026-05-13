@@ -14,7 +14,6 @@ class Payload:
 
 app = Flask(__name__)
 
-#no idea 
 _env_origins = os.getenv("FLASK_CORS_ORIGINS", "").strip()
 if _env_origins:
     _cors_origins = [o.strip() for o in _env_origins.split(",") if o.strip()]
