@@ -10,11 +10,38 @@
     let containerWidth: number;
     let containerHeight: number;
     let simulation: d3.Simulation<GraphNode, GraphLink>;
+    let rafId: number | null = null;
+    let lastSimKey = '';
 
+    // Card dimensions
     const OUT_W = 120;
     const OUT_H = 180;
     const CTR_W = 144;
     const CTR_H = 216;
+
+    // Score label below card
+    const SCORE_LABEL_GAP = 5;
+    const SCORE_LABEL_HEIGHT = 22;
+    const SCORE_LABEL_RX = 4;
+    const SCORE_LABEL_TEXT_OFFSET = 15; // pixels from label rect top to text baseline
+
+    // Layout
+    const MENU_WIDTH = 350;
+    const HORIZONTAL_EDGE_PAD = 18;  // extra buffer beyond half-card-width at screen edges
+    const TOP_EDGE_PAD = OUT_H / 2 + 20;
+    const BOTTOM_EDGE_PAD = OUT_H / 2 + SCORE_LABEL_GAP + SCORE_LABEL_HEIGHT + 20;
+    const INITIAL_JITTER = 50;       // random spread applied to node starting positions
+
+    // Simulation tuning
+    const CHARGE_STRENGTH = -2500;
+    const CTR_COLLISION_RADIUS = 158;
+    const OUT_COLLISION_RADIUS = 130;
+    const COLLISION_ITERATIONS = 3;
+    const LINK_DISTANCE_SCALE = 500;
+    const LINK_DISTANCE_MIN = 250;
+    const Y_FORCE_STRENGTH = 0.1;
+    const X_FORCE_STRENGTH = 0.01;
+    const ALPHA_DECAY = 0.02;
 
     function cardLayout(node: GraphNode): { w: number; h: number; x: number; y: number } {
         if (node.isCenter) {
@@ -23,21 +50,27 @@
         return { w: OUT_W, h: OUT_H, x: -OUT_W / 2, y: -OUT_H / 2 };
     }
 
-    $: if (nodes.length > 0 && containerWidth && containerHeight) {
-        runSimulation();
+    // Only restart the simulation when the actual node set or container dimensions change,
+    // not on every tick-driven nodes reassignment.
+    $: {
+        const key = nodes.map(n => String(n.id)).join(',') + `|${containerWidth ?? 0}|${containerHeight ?? 0}`;
+        if (key !== lastSimKey && nodes.length > 0 && containerWidth && containerHeight) {
+            lastSimKey = key;
+            runSimulation();
+        }
     }
 
     function runSimulation(): void {
         if (simulation) simulation.stop();
+        if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
 
-        const menuWidth = 350;
-        const centerX = menuWidth + (containerWidth - menuWidth) / 2;
+        const centerX = MENU_WIDTH + (containerWidth - MENU_WIDTH) / 2;
         const centerY = containerHeight / 2;
-        const padX = Math.max(90, CTR_W / 2 + 18);
+        const padX = CTR_W / 2 + HORIZONTAL_EDGE_PAD;
 
         nodes.forEach(n => {
-            if (n.x === undefined) n.x = centerX + (Math.random() - 0.5) * 50;
-            if (n.y === undefined) n.y = centerY + (Math.random() - 0.5) * 50;
+            if (n.x === undefined) n.x = centerX + (Math.random() - 0.5) * INITIAL_JITTER;
+            if (n.y === undefined) n.y = centerY + (Math.random() - 0.5) * INITIAL_JITTER;
         });
 
         const centerNode = nodes.find(n => n.isCenter);
@@ -47,22 +80,33 @@
         }
 
         simulation = d3.forceSimulation<GraphNode, GraphLink>(nodes)
-            .force('charge', d3.forceManyBody().strength(-2500))
-            .force('collide', d3.forceCollide<GraphNode>().radius(d => d.isCenter ? 158 : 130).iterations(3))
+            .force('charge', d3.forceManyBody().strength(CHARGE_STRENGTH))
+            .force('collide', d3.forceCollide<GraphNode>().radius(d => d.isCenter ? CTR_COLLISION_RADIUS : OUT_COLLISION_RADIUS).iterations(COLLISION_ITERATIONS))
             .force('link', d3.forceLink<GraphNode, GraphLink>(links)
                 .id(d => d.id as string)
-                .distance(d => (1 - d.score) * 500 + 250)
+                .distance(d => (1 - d.score) * LINK_DISTANCE_SCALE + LINK_DISTANCE_MIN)
             )
-            .force('y', d3.forceY(centerY).strength(0.1))
-            .force('x', d3.forceX(centerX).strength(0.01))
-            .alphaDecay(0.02)
+            .force('y', d3.forceY(centerY).strength(Y_FORCE_STRENGTH))
+            .force('x', d3.forceX(centerX).strength(X_FORCE_STRENGTH))
+            .alphaDecay(ALPHA_DECAY)
             .on('tick', () => {
                 nodes.forEach(d => {
                     if (d.x !== undefined && d.y !== undefined) {
-                        d.x = Math.max(menuWidth + padX, Math.min(containerWidth - padX, d.x));
-                        d.y = Math.max(100, Math.min(containerHeight - 100, d.y));
+                        d.x = Math.max(MENU_WIDTH + padX, Math.min(containerWidth - padX, d.x));
+                        d.y = Math.max(TOP_EDGE_PAD, Math.min(containerHeight - BOTTOM_EDGE_PAD, d.y));
                     }
                 });
+                // Throttle Svelte re-renders to one per animation frame.
+                if (rafId === null) {
+                    rafId = requestAnimationFrame(() => {
+                        nodes = [...nodes];
+                        links = [...links];
+                        rafId = null;
+                    });
+                }
+            })
+            .on('end', () => {
+                if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
                 nodes = [...nodes];
                 links = [...links];
             });
@@ -143,19 +187,26 @@
                             text-anchor="middle"
                             font-weight="bold"
                             font-family="sans-serif"
-                            font-size="14"
+                            font-size="15"
                         >
                             {node.title.length > 15 ? node.title.substring(0, 15) + '...' : node.title}
                         </text>
                     {/if}
-                    <rect x="-25" y="70" width="50" height="20" rx="4" fill="rgba(255,255,255,0.9)" />
+                    <rect
+                        x={c.x}
+                        y={c.y + c.h + SCORE_LABEL_GAP}
+                        width={c.w}
+                        height={SCORE_LABEL_HEIGHT}
+                        rx={SCORE_LABEL_RX}
+                        fill="#1a1a1a"
+                    />
                     <text
                         x="0"
-                        y="84"
+                        y={c.y + c.h + SCORE_LABEL_GAP + SCORE_LABEL_TEXT_OFFSET}
                         text-anchor="middle"
                         font-family="sans-serif"
-                        font-size="12"
-                        fill="#000"
+                        font-size="13"
+                        fill="#c9a96e"
                         font-weight="bold"
                     >
                         {node.score !== undefined ? node.score.toFixed(2) : ''}
@@ -180,21 +231,19 @@
 
     .clickable {
         cursor: pointer;
-        transition: transform 0.2s;
+        transition: filter 0.2s;
     }
 
-    .clickable:hover rect {
-        fill: #222 !important;
-        stroke: #ffd700 !important;
+    .clickable:hover {
+        filter: drop-shadow(0 0 10px rgba(180, 30, 30, 0.85));
     }
 
     .center-card {
         cursor: pointer;
-        transition: transform 0.2s;
+        transition: filter 0.2s;
     }
 
-    .center-card:hover rect {
-        stroke: #ffd700 !important;
-        fill: #1e293b !important;
+    .center-card:hover {
+        filter: drop-shadow(0 0 10px rgba(180, 30, 30, 0.7));
     }
 </style>

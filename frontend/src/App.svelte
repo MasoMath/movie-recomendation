@@ -1,7 +1,7 @@
 <script lang="ts">
     import './app.css';
     import { ServerPayload, type HydratedMovie } from './lib/utils';
-    import type { GraphNode, GraphLink, SearchPayload } from './lib/types';
+    import type { GraphNode, GraphLink, SearchPayload, ApiSearchPayload } from './lib/types';
 
     import SearchBar from './components/SearchBar.svelte';
     import ForceGraph from './components/ForceGraph.svelte';
@@ -17,16 +17,18 @@
     let lastInputMoviesHydrated: HydratedMovie[] = [];
     let inputsSummaryOpen = false;
 
-    async function handleSearch(payload: SearchPayload): Promise<void> {
+    const API_ENDPOINT = 'http://localhost:5000/api/recommend';
+
+    async function handleSearch(displayPayload: SearchPayload, apiPayload: ApiSearchPayload): Promise<void> {
         errorMessage = '';
 
         try {
-            const server_response = await fetch("http://localhost:5000/api/recommend", {
+            const server_response = await fetch(API_ENDPOINT, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(apiPayload)
             });
 
             if(!server_response.ok) {
@@ -43,7 +45,7 @@
             const input_movies_hydrated = zod_parsed.data.input_movies;
             const recommended_movies_hydrated = zod_parsed.data.recommended_movies;
 
-            lastSearchPayload = payload;
+            lastSearchPayload = displayPayload;
             lastInputMoviesHydrated = input_movies_hydrated;
 
             const centerTitle = input_movies_hydrated[0]?.title ?? 'Query';
