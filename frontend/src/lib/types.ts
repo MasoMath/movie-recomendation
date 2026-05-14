@@ -9,6 +9,7 @@ export interface GraphNode extends d3.SimulationNodeDatum {
     cast?: string[];
     release_date?: string;
     genres?: string[];
+    production_companies?: string[];
     poster_url?: string;
 }
 
@@ -23,11 +24,31 @@ export interface SearchCategory {
     weight: number;
 }
 
+export const SEARCH_CATEGORY_KEYS = [
+    'movies',
+    'actors',
+    'directors',
+    'genres',
+    'production_companies',
+] as const;
+
+export type SearchCategoryKey = (typeof SEARCH_CATEGORY_KEYS)[number];
+
+export const CATEGORY_DISPLAY_LABELS: Record<SearchCategoryKey, string> = {
+    movies: 'Movies',
+    actors: 'Actors',
+    directors: 'Directors',
+    genres: 'Genres',
+    production_companies: 'Production companies',
+};
+
 export interface SearchPayload {
     movies: SearchCategory;
     actors: SearchCategory;
     directors: SearchCategory;
     genres: SearchCategory;
+    production_companies: SearchCategory;
 }
+
 
 

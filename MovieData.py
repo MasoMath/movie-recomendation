@@ -45,11 +45,12 @@ class MovieData:
         ).drop(columns=['movie_id'])
         self._clean_data = df_non_cat_data.merge(df)
 
+    def __len__(self):  return len(self._clean_data)
 
     # --- Getters for DataFrames and Lookup Dictionaries ---
-    def get_og_movie_data(self):    return self._og_movie_data.copy()
-    def get_og_credit_data(self):   return self._og_credits_data.copy()
-    def get_data(self):             return self._clean_data.copy()
+    def get_og_movie_data(self):    return self._og_movie_data
+    def get_og_credit_data(self):   return self._og_credits_data
+    def get_data(self):             return self._clean_data
     
     def get_genres(self):               return np.array(self._dict_gkp['genres'])
     def get_keywords(self):             return np.array(self._dict_gkp['keywords'])
@@ -61,6 +62,14 @@ class MovieData:
     def get_actors(self):               return np.array(self._dict_cast['cast'])
     def get_directors(self):            return np.array(self._dict_crew['crew'])
     def get_movies(self):               return self._clean_data['original_title']
+    def get_budget(self):               return self._clean_data['budget'].to_numpy()
+    def get_popularity(self):           return self._clean_data['popularity'].to_numpy()
+    def get_revenue(self):              return self._clean_data['revenue'].to_numpy()
+    def get_runtime(self):              return self._clean_data['runtime'].to_numpy()
+    def get_score(self):                return self._clean_data['vote_average'].to_numpy()
+    def get_vote_count(self):           return self._clean_data['vote_count'].to_numpy()
+    def get_tmbd_id(self):              return self._clean_data['id'].to_numpy()
+    def get_col(self,col):              return self._clean_data[col]
 
     def save_csv(self, file_path):
         """
@@ -70,27 +79,31 @@ class MovieData:
 
     def entry_as_list(self, col_name, row_num=None):
         """
-            DEPRECATED. Returns a "list stored as a string" as a list object.
-            
-            This function is no longer needed as data is now pre-parsed.
-            It will be removed in a future version.
+        Retrieves data from a specific column as a list or a single row entry.
 
-            Args:
-                col_name (str): The name of the column to process.
-                row_num (int, optional): The specific index of the row to convert. 
+        .. warning::
+           LEGACY CODE: This method is maintained for backward compatibility but 
+           should be avoided in new development. It relies on chain-indexing 
+           (self.get_data()[col_name][row_num]), which can lead to performance 
+           bottlenecks and SettingWithCopy warnings in pandas. 
+           Use .at[] or .loc[] instead.
 
-            Returns:
-                list or pandas.Series: The requested data.
+        Parameters:
+        
+            col_name : str
+                The name of the column to access.
+
+            row_num : int or hashable, optional
+                The specific row index to retrieve. If None, the entire column 
+                is returned. Defaults to None.
+
+        Returns:
+        
+            Any or pd.Series
+                The specific entry at row_num if provided; otherwise,
+                the full column Series.
         """
-        import warnings
-        warnings.warn(
-            "entry_as_list() is no longer needed and will be removed in a future update." +
-            "\nCall find_movies() or index the get_data() DataFrame directly",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        if row_num is not None:
-            return self.get_data()[col_name][row_num]
+        if row_num is not None: return self.get_data()[col_name][row_num]
         return self.get_data()[col_name]
         
     def find_movies(self,movies):
