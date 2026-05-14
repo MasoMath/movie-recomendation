@@ -103,12 +103,12 @@
     h2 {
         margin: 0;
         color: #fff;
-        font-size: 1.35rem;
+        font-size: 1.5rem;
     }
 
     .subtitle {
         margin: 6px 0 0;
-        font-size: 0.9rem;
+        font-size: 1rem;
         color: #94a3b8;
     }
 
@@ -140,8 +140,8 @@
 
     .category-section h3 {
         margin: 0 0 8px;
-        font-size: 1rem;
-        color: #ffd700;
+        font-size: 1.1rem;
+        color: #c9a96e;
         display: flex;
         flex-wrap: wrap;
         align-items: baseline;
@@ -149,14 +149,14 @@
     }
 
     .weight {
-        font-size: 0.85rem;
+        font-size: 0.95rem;
         font-weight: normal;
         color: #cbd5e1;
     }
 
     .empty {
         margin: 0;
-        font-size: 0.9rem;
+        font-size: 1rem;
         color: #64748b;
     }
 

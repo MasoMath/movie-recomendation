@@ -1,4 +1,5 @@
 import os, sys, random, requests
+from concurrent.futures import ThreadPoolExecutor
 
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -7,11 +8,15 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from MovieData import MovieData
 from dataclasses import dataclass
 from pydantic import BaseModel
+import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 
 load_dotenv()
 tmdb_api_key = os.getenv("TMDB_API_KEY")
+
+TMDB_REQUEST_TIMEOUT = 3
+NUM_RECOMMENDATIONS = 10
 
 @dataclass
 class MovieIdAndScore:
@@ -31,7 +36,7 @@ class HydratedMovie:
     poster_url: str
 
 class Category(BaseModel):
-    items: list[str]
+    items: list[int]
     weight: float
 
 class InputFormatted(BaseModel):
@@ -49,7 +54,7 @@ def get_movie_poster_url(movie_id: int, tmdb_api_key: str) -> str:
     url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={tmdb_api_key}"
 
     try:
-        response = requests.get(url, timeout=3)
+        response = requests.get(url, timeout=TMDB_REQUEST_TIMEOUT)
     except requests.exceptions.RequestException as e:
         print(e)
         return None
@@ -89,40 +94,33 @@ def _hydrate_movie_from_row(row, score: float) -> HydratedMovie:
     )
 
 def hydrate_recommended_movies(movie_recommendations: list[MovieIdAndScore]) -> list[HydratedMovie]:
-    hydrated_results = []
-    for rec in movie_recommendations:
-        if rec.id not in df.index:
-            continue
-            
-        row = df.loc[rec.id]
-        hydrated_results.append(_hydrate_movie_from_row(row, rec.score))
-        
-    return hydrated_results
+    valid_recs = [(rec, df.loc[rec.id]) for rec in movie_recommendations if rec.id in df.index]
+    if not valid_recs:
+        return []
+
+    def hydrate(pair):
+        rec, row = pair
+        return _hydrate_movie_from_row(row, rec.score)
+
+    with ThreadPoolExecutor(max_workers=len(valid_recs)) as executor:
+        return list(executor.map(hydrate, valid_recs))
 
 
-#TODO: Don't append None
-def hydrate_input_movies(input_movies: list[str]) -> list[HydratedMovie]:
+def hydrate_input_movies(input_movie_indices: list[int]) -> list[HydratedMovie]:
     hydrated_results = []
-    for title in input_movies:
-        matching_rows = movie_data_instance.find_movies(title)
-        if matching_rows.empty:
-            hydrated_results.append(None)
-            continue
-        
-        row = matching_rows.iloc[0]
+    for idx in input_movie_indices:
+        row = movie_data_instance.get_data().iloc[idx]
         hydrated_results.append(_hydrate_movie_from_row(row, 1.0))
-
     return hydrated_results
 
 def fake_ml_model(movie_input: InputFormatted) -> list[MovieIdAndScore]:
-    num_recommendations = 10
-    random_ids = random.sample(all_movie_ids, num_recommendations)
-    #print(random_ids)
+    random_ids = random.sample(all_movie_ids, NUM_RECOMMENDATIONS)
     return [MovieIdAndScore(id=m_id, score=round(random.random(), 3)) for m_id in random_ids]
 
 def send_input_to_model(movie_input: InputFormatted) -> list[MovieIdAndScore]:
-    movies = fake_ml_model(movie_input)
-    return movies
+    return fake_ml_model(movie_input)
+
+
 
 movie_data_instance = MovieData(
     path_to_movie='../kaggledata/tmdb_5000_movies.csv',
@@ -139,4 +137,12 @@ directors_arr = movie_data_instance.get_directors()
 production_companies_arr = movie_data_instance.get_prod_companies()
 
 all_movie_posters = {}
+
+try:
+    genre_matrix = np.loadtxt('../similarity_matrices/genre.csv', delimiter=',')
+    keyword_matrix = np.loadtxt('../similarity_matrices/keywords.csv', delimiter=',')
+except FileNotFoundError:
+    genre_matrix = None
+    keyword_matrix = None
+    print("Similarity Matrices not found")
 

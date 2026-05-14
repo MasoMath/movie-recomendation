@@ -24,6 +24,11 @@ export interface SearchCategory {
     weight: number;
 }
 
+export interface ApiSearchCategory {
+    items: number[];
+    weight: number;
+}
+
 export const SEARCH_CATEGORY_KEYS = [
     'movies',
     'actors',
@@ -48,6 +53,14 @@ export interface SearchPayload {
     directors: SearchCategory;
     genres: SearchCategory;
     production_companies: SearchCategory;
+}
+
+export interface ApiSearchPayload {
+    movies: ApiSearchCategory;
+    actors: ApiSearchCategory;
+    directors: ApiSearchCategory;
+    genres: ApiSearchCategory;
+    production_companies: ApiSearchCategory;
 }
 
 

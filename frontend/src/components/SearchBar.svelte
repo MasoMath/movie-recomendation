@@ -9,11 +9,12 @@
         SEARCH_CATEGORY_KEYS,
         CATEGORY_DISPLAY_LABELS,
         type SearchPayload,
+        type ApiSearchPayload,
         type SearchCategoryKey,
     } from "../lib/types";
 
     export let errorMessage: string = '';
-    export let onsearch: (payload: SearchPayload) => void;
+    export let onsearch: (display: SearchPayload, api: ApiSearchPayload) => void;
 
     const validMoviesArray: string[] = valid_movies as string[];
     const validActorsArray: string[] = valid_actors as string[];
@@ -21,18 +22,20 @@
     const validGenresArray: string[] = valid_genres as string[];
     const validProductionCompaniesArray: string[] = valid_production_companies as string[];
 
-    const validMovies = new Map<string, string>(validMoviesArray.map(m => [normalize(m), m]));
-    const validActors = new Map<string, string>(validActorsArray.map(a => [normalize(a), a]));
-    const validDirectors = new Map<string, string>(validDirectorsArray.map(d => [normalize(d), d]));
-    const validGenres = new Map<string, string>(validGenresArray.map(g => [normalize(g), g]));
-    const validProductionCompanies = new Map<string, string>(validProductionCompaniesArray.map(c => [normalize(c), c]));
+    const validArrays: Record<SearchCategoryKey, string[]> = {
+        movies: validMoviesArray,
+        actors: validActorsArray,
+        directors: validDirectorsArray,
+        genres: validGenresArray,
+        production_companies: validProductionCompaniesArray,
+    };
 
-    const validationMaps: Record<SearchCategoryKey, Map<string, string>> = {
-        movies: validMovies,
-        actors: validActors,
-        directors: validDirectors,
-        genres: validGenres,
-        production_companies: validProductionCompanies,
+    const indexMaps: Record<SearchCategoryKey, Map<string, number>> = {
+        movies: new Map(validMoviesArray.map((m, i) => [normalize(m), i])),
+        actors: new Map(validActorsArray.map((a, i) => [normalize(a), i])),
+        directors: new Map(validDirectorsArray.map((d, i) => [normalize(d), i])),
+        genres: new Map(validGenresArray.map((g, i) => [normalize(g), i])),
+        production_companies: new Map(validProductionCompaniesArray.map((c, i) => [normalize(c), i])),
     };
 
     function categoryLabel(category: SearchCategoryKey): string {
@@ -43,7 +46,7 @@
 
     let searchData: Record<
         SearchCategoryKey,
-        { items: string[]; weight: number; currentInput: string }
+        { items: number[]; weight: number; currentInput: string }
     > = {
         movies: { items: [], weight: 1.0, currentInput: '' },
         actors: { items: [], weight: 1.0, currentInput: '' },
@@ -58,12 +61,11 @@
         const rawInput = searchData[category].currentInput.trim();
         if (!rawInput) return;
 
-        const normalizedInput = normalize(rawInput);
-        const properString = validationMaps[category].get(normalizedInput);
+        const idx = indexMaps[category].get(normalize(rawInput));
 
-        if (properString) {
-            if (!searchData[category].items.includes(properString)) {
-                searchData[category].items = [...searchData[category].items, properString];
+        if (idx !== undefined) {
+            if (!searchData[category].items.includes(idx)) {
+                searchData[category].items = [...searchData[category].items, idx];
             }
             searchData[category].currentInput = '';
             errorMessage = '';
@@ -85,7 +87,7 @@
 
     function submitSearch() {
         isCollapsed = true;
-        
+
         categories.forEach(c => {
             if (searchData[c].currentInput.trim()) {
                 addItem(c);
@@ -93,17 +95,21 @@
         });
 
         if (onsearch) {
-            const payload: SearchPayload = {
+            const displayPayload: SearchPayload = {
+                movies: { items: searchData.movies.items.map(i => validArrays.movies[i]), weight: searchData.movies.weight },
+                actors: { items: searchData.actors.items.map(i => validArrays.actors[i]), weight: searchData.actors.weight },
+                directors: { items: searchData.directors.items.map(i => validArrays.directors[i]), weight: searchData.directors.weight },
+                genres: { items: searchData.genres.items.map(i => validArrays.genres[i]), weight: searchData.genres.weight },
+                production_companies: { items: searchData.production_companies.items.map(i => validArrays.production_companies[i]), weight: searchData.production_companies.weight },
+            };
+            const apiPayload: ApiSearchPayload = {
                 movies: { items: searchData.movies.items, weight: searchData.movies.weight },
                 actors: { items: searchData.actors.items, weight: searchData.actors.weight },
                 directors: { items: searchData.directors.items, weight: searchData.directors.weight },
                 genres: { items: searchData.genres.items, weight: searchData.genres.weight },
-                production_companies: {
-                    items: searchData.production_companies.items,
-                    weight: searchData.production_companies.weight,
-                },
+                production_companies: { items: searchData.production_companies.items, weight: searchData.production_companies.weight },
             };
-            onsearch(payload);
+            onsearch(displayPayload, apiPayload);
         }
     }
 </script>
@@ -133,9 +139,9 @@
                     <button class="add-btn" on:click={() => addItem(category)}>+</button>
                 </div>
                 <div class="tags">
-                    {#each searchData[category].items as item, i}
+                    {#each searchData[category].items as itemIdx, i}
                         <span class="tag">
-                            {item}
+                            {validArrays[category][itemIdx]}
                             <button class="remove-btn" on:click={() => removeItem(category, i)}>×</button>
                         </span>
                     {/each}
@@ -248,9 +254,9 @@ h2 {
 }
 
 .weight-val {
-    color: #ffd700;
-    font-size: 14px;
-    min-width: 24px;
+    color: #fff;
+    font-size: 16px;
+    min-width: 32px;
 }
 
 .input-row {
@@ -266,6 +272,7 @@ input[type="text"] {
     color: #fff;
     border: 1px solid #555;
     border-radius: 4px;
+    font-size: 1rem;
 }
 
 input[type="text"]:focus {
@@ -296,9 +303,9 @@ input[type="text"]:focus {
 .tag {
     background-color: #8b0000;
     color: #fff;
-    padding: 4px 8px;
+    padding: 5px 10px;
     border-radius: 12px;
-    font-size: 14px;
+    font-size: 15px;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -316,15 +323,15 @@ input[type="text"]:focus {
 }
 
 .remove-btn:hover {
-    color: #ffd700;
+    color: #fff;
 }
 
 .search-btn {
     background-color: #8b0000;
-    color: #ffd700;
+    color: #fff;
     border: none;
-    padding: 15px;
-    font-size: 18px;
+    padding: 16px;
+    font-size: 20px;
     font-weight: bold;
     border-radius: 8px;
     cursor: pointer;
@@ -335,6 +342,7 @@ input[type="text"]:focus {
 .search-btn:hover {
     background-color: #a50000;
 }
+
 
 .error-text {
     color: #ff4d4d;

@@ -32,7 +32,14 @@
                 <p><strong>Genres:</strong> {selectedMovie.genres.join(', ')}</p>
             {/if}
             {#if selectedMovie.cast && selectedMovie.cast.length > 0}
-                <p><strong>Cast:</strong> {selectedMovie.cast.join(', ')}</p>
+                <div class="cast-section">
+                    <strong>Cast</strong>
+                    <ul class="cast-list">
+                        {#each selectedMovie.cast as actor}
+                            <li>{actor}</li>
+                        {/each}
+                    </ul>
+                </div>
             {/if}
         </div>
     </div>
@@ -61,7 +68,10 @@
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.9);
   width: 400px;
   max-width: 90%;
+  max-height: 85vh;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .close-btn {
@@ -82,6 +92,9 @@
 
 .modal-body {
   margin-top: 20px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .modal-body p {
@@ -89,6 +102,29 @@
 }
 
 .modal-body strong {
-  color: #ffd700;
+  color: #c9a96e;
+}
+
+.cast-section {
+  margin: 8px 0;
+}
+
+.cast-section strong {
+  color: #c9a96e;
+}
+
+.cast-list {
+  margin: 6px 0 0 0;
+  padding-left: 1.2rem;
+  max-height: 140px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cast-list li {
+  font-size: 1rem;
+  color: #e5e5e5;
 }
 </style>
