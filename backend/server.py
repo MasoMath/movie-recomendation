@@ -1,5 +1,6 @@
 import os
 import re
+from dataclasses import asdict
 
 from helpers import *
 from flask import Flask, request, jsonify
@@ -53,6 +54,6 @@ def recommend_movie():
 
     #print(payload)
 
-    return jsonify(payload)
+    return jsonify(asdict(payload))
 
   
