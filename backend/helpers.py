@@ -1,4 +1,5 @@
 import os, sys, random, requests
+from concurrent.futures import ThreadPoolExecutor
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 #^this is just so that I don't have to move around the files to access MovieData
@@ -12,6 +13,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 tmdb_api_key = os.getenv("TMDB_API_KEY")
+
+TMDB_REQUEST_TIMEOUT = 3
+NUM_RECOMMENDATIONS = 10
 
 @dataclass
 class MovieIdAndScore:
@@ -31,7 +35,7 @@ class HydratedMovie:
     poster_url: str
 
 class Category(BaseModel):
-    items: list[str]
+    items: list[int]
     weight: float
 
 class InputFormatted(BaseModel):
@@ -50,7 +54,7 @@ def format_raw_input(payload: dict) -> InputFormatted:
 def get_movie_poster_url(movie_id: int, tmdb_api_key: str) -> str:
     url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={tmdb_api_key}"
     try:
-        response = requests.get(url, timeout=3)
+        response = requests.get(url, timeout=TMDB_REQUEST_TIMEOUT)
     except requests.exceptions.RequestException as e:
         print(e)
         return None
@@ -58,11 +62,11 @@ def get_movie_poster_url(movie_id: int, tmdb_api_key: str) -> str:
     return f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else None
 
 def _hydrate_movie_from_row(row, score: float) -> HydratedMovie:
-    genre_names   = genres_arr[row['genres']].tolist() if isinstance(row['genres'], list) else []
-    cast_names    = actors_arr[row['cast']].tolist()   if isinstance(row['cast'], list)   else []
-    director_names = directors_arr[row['crew']].tolist() if isinstance(row['crew'], list) else []
+    genre_names    = genres_arr[row['genres']].tolist() if isinstance(row['genres'], list) else []
+    cast_names     = actors_arr[row['cast']].tolist()   if isinstance(row['cast'], list)   else []
+    director_names = directors_arr[row['crew']].tolist() if isinstance(row['crew'], list)  else []
     raw_pc = row['production_companies'] if 'production_companies' in row.index else []
-    company_names = production_companies_arr[raw_pc].tolist() if isinstance(raw_pc, list) and raw_pc else []
+    company_names  = production_companies_arr[raw_pc].tolist() if isinstance(raw_pc, list) and raw_pc else []
 
     release_date = str(row['release_date']) if pd.notna(row['release_date']) else "Unknown"
     movie_id = int(row['id'])
@@ -79,15 +83,15 @@ def _hydrate_movie_from_row(row, score: float) -> HydratedMovie:
     )
 
 def hydrate_recommended_movies(recs: list[MovieIdAndScore]) -> list[HydratedMovie]:
-    return [_hydrate_movie_from_row(df.loc[r.id], r.score) for r in recs if r.id in df.index]
+    valid_recs = [(rec, df.loc[rec.id]) for rec in recs if rec.id in df.index]
+    if not valid_recs:
+        return []
+    with ThreadPoolExecutor(max_workers=len(valid_recs)) as executor:
+        return list(executor.map(lambda pair: _hydrate_movie_from_row(pair[1], pair[0].score), valid_recs))
 
-#TODO: Don't append None
-def hydrate_input_movies(input_movies: list[str]) -> list[HydratedMovie]:
-    results = []
-    for title in input_movies:
-        rows = movie_data_instance.find_movies(title)
-        results.append(_hydrate_movie_from_row(rows.iloc[0], 1.0) if not rows.empty else None)
-    return results
+def hydrate_input_movies(input_movie_indices: list[int]) -> list[HydratedMovie]:
+    return [_hydrate_movie_from_row(movie_data_instance.get_data().iloc[idx], 1.0)
+            for idx in input_movie_indices]
 
 
 # --- ML helpers ---
@@ -99,39 +103,33 @@ SIMILARITY_WEIGHTS = {
     'genre':                0.15,
 }
 
-def _build_index(col: str, arr: np.ndarray) -> dict[str, list[int]]:
-    index: dict[str, list[int]] = {}
+def _build_index(col: str) -> dict[int, list[int]]:
+    """Maps attribute array index -> list of movie positional indices."""
+    index: dict[int, list[int]] = {}
     for pos, (_, row) in enumerate(df.iterrows()):
         if isinstance(row[col], list):
             for i in row[col]:
-                index.setdefault(arr[i].lower(), []).append(pos)
+                index.setdefault(i, []).append(pos)
     return index
 
-def _top_k(scores: np.ndarray, k: int = 10) -> list[MovieIdAndScore]:
+def _top_k(scores: np.ndarray, k: int = NUM_RECOMMENDATIONS) -> list[MovieIdAndScore]:
     k = min(k, len(scores))
     top = np.argpartition(-scores, k)[:k]
     top = top[np.argsort(-scores[top])]
     return [MovieIdAndScore(id=int(pos_to_tmdb_id[p]), score=round(float(scores[p]), 4))
             for p in top if scores[p] >= 0.0]
 
-def _exclude_movies(scores: np.ndarray, titles: list[str]) -> None:
-    for title in titles:
-        rows = movie_data_instance.find_movies(title)
-        if not rows.empty:
-            pos = tmdb_id_to_pos.get(int(rows.iloc[0]['id']))
-            if pos is not None:
-                scores[pos] = -1.0
+def _exclude_movies(scores: np.ndarray, positions: list[int]) -> None:
+    for pos in positions:
+        if 0 <= pos < len(scores):
+            scores[pos] = -1.0
 
 def _minmax_normalize(v: np.ndarray) -> np.ndarray:
     lo, hi = v.min(), v.max()
     return (v - lo) / (hi - lo) if hi - lo > 1e-9 else np.zeros_like(v)
 
-def _movie_sim_vector(title: str) -> np.ndarray | None:
-    matches = movie_data_instance.find_movies(title)
-    if matches.empty:
-        return None
-    pos = tmdb_id_to_pos.get(int(matches.iloc[0]['id']))
-    if pos is None:
+def _movie_sim_vector(pos: int) -> np.ndarray | None:
+    if pos < 0 or pos >= len(pos_to_tmdb_id):
         return None
     return (
         SIMILARITY_WEIGHTS['cast_director']        * cast_director_matrix[pos]
@@ -140,10 +138,10 @@ def _movie_sim_vector(title: str) -> np.ndarray | None:
         + SIMILARITY_WEIGHTS['genre']                * genre_movie_matrix[pos]
     ).copy()
 
-def _presence_vector(items: list[str], lookup: dict) -> np.ndarray | None:
+def _presence_vector(item_indices: list[int], lookup: dict[int, list[int]]) -> np.ndarray | None:
     vecs = []
-    for name in items:
-        positions = lookup.get(name.lower())
+    for idx in item_indices:
+        positions = lookup.get(idx)
         if positions:
             v = np.zeros(len(pos_to_tmdb_id), dtype=np.float32)
             v[positions] = 1.0
@@ -154,7 +152,7 @@ def _category_vector(category: Category, lookup: dict | None) -> np.ndarray | No
     if not category.items or category.weight <= 0:
         return None
     if lookup is None:
-        vecs = [v for t in category.items if (v := _movie_sim_vector(t)) is not None]
+        vecs = [v for i in category.items if (v := _movie_sim_vector(i)) is not None]
         raw = np.mean(vecs, axis=0) if vecs else None
     else:
         raw = _presence_vector(category.items, lookup)
@@ -163,14 +161,14 @@ def _category_vector(category: Category, lookup: dict | None) -> np.ndarray | No
 
 # --- Recommendation API ---
 
-def blended_recommend(movie_title: str, k: int = 10) -> list[MovieIdAndScore]:
-    sims = _movie_sim_vector(movie_title)
+def blended_recommend(movie_pos: int, k: int = NUM_RECOMMENDATIONS) -> list[MovieIdAndScore]:
+    sims = _movie_sim_vector(movie_pos)
     if sims is None:
         return []
-    _exclude_movies(sims, [movie_title])
+    _exclude_movies(sims, [movie_pos])
     return _top_k(sims, k)
 
-def send_input_to_model(movie_input: InputFormatted, k: int = 10) -> list[MovieIdAndScore]:
+def send_input_to_model(movie_input: InputFormatted, k: int = NUM_RECOMMENDATIONS) -> list[MovieIdAndScore]:
     specs = [
         (movie_input.movies,               None),
         (movie_input.actors,               _actor_index),
@@ -191,7 +189,7 @@ def send_input_to_model(movie_input: InputFormatted, k: int = 10) -> list[MovieI
     return _top_k(blended, k)
 
 def fake_ml_model(movie_input: InputFormatted) -> list[MovieIdAndScore]:
-    ids = random.sample(all_movie_ids, 10)
+    ids = random.sample(all_movie_ids, NUM_RECOMMENDATIONS)
     return [MovieIdAndScore(id=m, score=round(random.random(), 3)) for m in ids]
 
 
@@ -225,9 +223,17 @@ keywords_movie_matrix       = np.load(os.path.join(_matrices_dir, 'keywords_movi
 genre_movie_matrix    -= genre_movie_matrix.mean(axis=1, keepdims=True)
 keywords_movie_matrix -= keywords_movie_matrix.mean(axis=1, keepdims=True)
 
-_actor_index    = _build_index('cast',                 actors_arr)
-_director_index = _build_index('crew',                 directors_arr)
-_genre_index    = _build_index('genres',               genres_arr)
-_company_index  = _build_index('production_companies', production_companies_arr)
+_actor_index    = _build_index('cast')
+_director_index = _build_index('crew')
+_genre_index    = _build_index('genres')
+_company_index  = _build_index('production_companies')
+
+try:
+    genre_matrix   = np.loadtxt('../similarity_matrices/genre.csv',    delimiter=',')
+    keyword_matrix = np.loadtxt('../similarity_matrices/keywords.csv', delimiter=',')
+except FileNotFoundError:
+    genre_matrix   = None
+    keyword_matrix = None
+    print("Similarity Matrices not found")
 
 all_movie_posters = {}
