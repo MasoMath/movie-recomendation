@@ -1,11 +1,11 @@
 import os, sys, random, requests
 from concurrent.futures import ThreadPoolExecutor
 
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-#^this is just so that I don't have to move around the files to access MovieData
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(_ROOT)
 
 from MovieData import MovieData
+from similarity import aggregate_similarity
 from dataclasses import dataclass
 from pydantic import BaseModel
 import numpy as np
@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 tmdb_api_key = os.getenv("TMDB_API_KEY")
 
-TMDB_REQUEST_TIMEOUT = 3
+TMDB_REQUEST_TIMEOUT = 10
 NUM_RECOMMENDATIONS = 10
 
 @dataclass
@@ -54,7 +54,7 @@ def get_movie_poster_url(movie_id: int, tmdb_api_key: str) -> str:
     url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={tmdb_api_key}"
 
     try:
-        response = requests.get(url, timeout=TMDB_REQUEST_TIMEOUT)
+        response = requests.get(url,timeout=TMDB_REQUEST_TIMEOUT)
     except requests.exceptions.RequestException as e:
         print(e)
         return None
@@ -98,12 +98,13 @@ def hydrate_recommended_movies(movie_recommendations: list[MovieIdAndScore]) -> 
     if not valid_recs:
         return []
 
-    def hydrate(pair):
-        rec, row = pair
-        return _hydrate_movie_from_row(row, rec.score)
+    uncached_ids = [int(row['id']) for _, row in valid_recs if not all_movie_posters.get(int(row['id']))]
+    if uncached_ids:
+        with ThreadPoolExecutor(max_workers=len(uncached_ids)) as executor:
+            for movie_id, url in executor.map(lambda mid: (mid, get_movie_poster_url(mid, tmdb_api_key)), uncached_ids):
+                all_movie_posters[movie_id] = url
 
-    with ThreadPoolExecutor(max_workers=len(valid_recs)) as executor:
-        return list(executor.map(hydrate, valid_recs))
+    return [_hydrate_movie_from_row(row, rec.score) for rec, row in valid_recs]
 
 
 def hydrate_input_movies(input_movie_indices: list[int]) -> list[HydratedMovie]:

@@ -187,6 +187,7 @@
 
 <style>
 .search-panel {
+    box-sizing: border-box;
     position: fixed;
     top: 50%;
     left: 50%;
@@ -216,7 +217,52 @@
     border-radius: 0;
     border: none;
     border-right: 2px solid #8b0000;
-    padding: 20px;
+    padding: 16px;
+    gap: 10px;
+    overflow-y: hidden;
+}
+
+.search-panel.collapsed .categories {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    gap: 8px;
+}
+
+.search-panel.collapsed .category-block {
+    padding: 10px;
+}
+
+.search-panel.collapsed .header-row {
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.search-panel.collapsed .header-row label {
+    flex: 0 0 100%;
+    font-size: 13px;
+}
+
+.search-panel.collapsed .header-row input[type="range"] {
+    flex: 1;
+    min-width: 0;
+}
+
+.search-panel.collapsed .weight-val {
+    font-size: 13px;
+    min-width: 24px;
+}
+
+.search-panel.collapsed .input-row {
+    margin-bottom: 6px;
+}
+
+.search-panel.collapsed .search-btn {
+    flex-shrink: 0;
+    padding: 12px;
+    font-size: 16px;
+    margin-top: 0;
 }
 
 h2 {

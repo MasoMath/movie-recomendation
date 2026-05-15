@@ -68,6 +68,10 @@
         const centerY = containerHeight / 2;
         const padX = CTR_W / 2 + HORIZONTAL_EDGE_PAD;
 
+        // Scale forces so the layout fills the available canvas on any screen size.
+        // Reference: a ~800px tall small laptop. Linear scale keeps proportions natural.
+        const scale = Math.min(containerWidth - MENU_WIDTH, containerHeight) / 800;
+
         nodes.forEach(n => {
             if (n.x === undefined) n.x = centerX + (Math.random() - 0.5) * INITIAL_JITTER;
             if (n.y === undefined) n.y = centerY + (Math.random() - 0.5) * INITIAL_JITTER;
@@ -79,12 +83,20 @@
             centerNode.fy = centerY;
         }
 
+        const scores = links.map(l => l.score);
+        const minScore = Math.min(...scores);
+        const maxScore = Math.max(...scores);
+        const scoreRange = maxScore - minScore;
+
         simulation = d3.forceSimulation<GraphNode, GraphLink>(nodes)
-            .force('charge', d3.forceManyBody().strength(CHARGE_STRENGTH))
+            .force('charge', d3.forceManyBody().strength(CHARGE_STRENGTH * scale))
             .force('collide', d3.forceCollide<GraphNode>().radius(d => d.isCenter ? CTR_COLLISION_RADIUS : OUT_COLLISION_RADIUS).iterations(COLLISION_ITERATIONS))
             .force('link', d3.forceLink<GraphNode, GraphLink>(links)
                 .id(d => d.id as string)
-                .distance(d => (1 - d.score) * LINK_DISTANCE_SCALE + LINK_DISTANCE_MIN)
+                .distance(d => {
+                    const norm = scoreRange > 0 ? (d.score - minScore) / scoreRange : 0.5;
+                    return ((1 - norm) * LINK_DISTANCE_SCALE + LINK_DISTANCE_MIN) * scale;
+                })
             )
             .force('y', d3.forceY(centerY).strength(Y_FORCE_STRENGTH))
             .force('x', d3.forceX(centerX).strength(X_FORCE_STRENGTH))
@@ -92,8 +104,10 @@
             .on('tick', () => {
                 nodes.forEach(d => {
                     if (d.x !== undefined && d.y !== undefined) {
-                        d.x = Math.max(MENU_WIDTH + padX, Math.min(containerWidth - padX, d.x));
-                        d.y = Math.max(TOP_EDGE_PAD, Math.min(containerHeight - BOTTOM_EDGE_PAD, d.y));
+                        if (d.x < MENU_WIDTH + padX) { d.x = MENU_WIDTH + padX; if ((d.vx ?? 0) < 0) d.vx = 0; }
+                        else if (d.x > containerWidth - padX) { d.x = containerWidth - padX; if ((d.vx ?? 0) > 0) d.vx = 0; }
+                        if (d.y < TOP_EDGE_PAD) { d.y = TOP_EDGE_PAD; if ((d.vy ?? 0) < 0) d.vy = 0; }
+                        else if (d.y > containerHeight - BOTTOM_EDGE_PAD) { d.y = containerHeight - BOTTOM_EDGE_PAD; if ((d.vy ?? 0) > 0) d.vy = 0; }
                     }
                 });
                 // Throttle Svelte re-renders to one per animation frame.
