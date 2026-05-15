@@ -7,3 +7,4 @@ venv/*
 /**/.virtual_documents/*
 /**/.ipynb_checkpoints/*
 /**/similarity_matrices/*
+__MACOSX
