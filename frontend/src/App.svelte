@@ -16,6 +16,7 @@
     let lastSearchPayload: SearchPayload | null = null;
     let lastInputMoviesHydrated: HydratedMovie[] = [];
     let inputsSummaryOpen = false;
+    let graphKey = 0;
 
     const API_ENDPOINT = 'http://localhost:5000/api/recommend';
 
@@ -47,6 +48,7 @@
 
             lastSearchPayload = displayPayload;
             lastInputMoviesHydrated = input_movies_hydrated;
+            graphKey += 1;
 
             const centerTitle = input_movies_hydrated[0]?.title ?? 'Query';
 
@@ -94,6 +96,7 @@
     <ForceGraph
         {nodes}
         {links}
+        {graphKey}
         onNodeClick={(node) => selectedMovie = node}
         onCenterClick={() => {
             if (lastSearchPayload) inputsSummaryOpen = true;
