@@ -122,7 +122,7 @@
                 <div class="header-row">
                     <label for="{category}-weight">{categoryLabel(category)}</label>
                 
-                    <input id="{category}-weight" type="range" min="0" max="1" step="0.1" bind:value={searchData[category].weight} title="Weight" />
+                    <input id="{category}-weight" type="range" min="0.1" max="1" step="0.1" bind:value={searchData[category].weight} title="Weight" />
                     <span class="weight-val">{searchData[category].weight}</span>
                 </div>
                 <div class="input-row">
