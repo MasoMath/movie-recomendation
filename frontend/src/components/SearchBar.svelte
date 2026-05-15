@@ -4,6 +4,7 @@
     import valid_directors from "../assets/valid_directors.json";
     import valid_genres from "../assets/valid_genres.json";
     import valid_production_companies from "../assets/valid_production_companies.json";
+    import { slide } from 'svelte/transition';
     import { normalize } from "../lib/utils";
     import {
         SEARCH_CATEGORY_KEYS,
@@ -43,6 +44,16 @@
     }
 
     let isCollapsed = false;
+    let openCategories = new Set<SearchCategoryKey>(['movies']);
+
+    function toggleCategory(cat: SearchCategoryKey) {
+        if (openCategories.has(cat)) {
+            openCategories.delete(cat);
+        } else {
+            openCategories.add(cat);
+        }
+        openCategories = openCategories;
+    }
 
     let searchData: Record<
         SearchCategoryKey,
@@ -86,13 +97,18 @@
     }
 
     function submitSearch() {
-        isCollapsed = true;
-
         categories.forEach(c => {
             if (searchData[c].currentInput.trim()) {
                 addItem(c);
             }
         });
+
+        if (!categories.some(c => searchData[c].items.length > 0)) {
+            errorMessage = 'Please add at least one search item.';
+            return;
+        }
+
+        isCollapsed = true;
 
         if (onsearch) {
             const displayPayload: SearchPayload = {
@@ -119,33 +135,44 @@
     <div class="categories">
         {#each categories as category}
             <div class="category-block">
-                <div class="header-row">
-                    <label for="{category}-weight">{categoryLabel(category)}</label>
-                
-                    <input id="{category}-weight" type="range" min="0.1" max="1" step="0.1" bind:value={searchData[category].weight} title="Weight" />
-                    <span class="weight-val">{searchData[category].weight}</span>
-                </div>
-                <div class="input-row">
-                    <label for="{category}-input" class="sr-only">Add {categoryLabel(category)}</label>
-           
-                    <input
-                        id="{category}-input"
-                        type="text"
-                        bind:value={searchData[category].currentInput}
-                        on:keydown={(e) => handleKeydown(e, category)}
-                        placeholder={`Add ${categoryLabel(category).toLowerCase()}...`}
-                        list="{category}-list"
-                    />
-                    <button class="add-btn" on:click={() => addItem(category)}>+</button>
-                </div>
-                <div class="tags">
-                    {#each searchData[category].items as itemIdx, i}
-                        <span class="tag">
-                            {validArrays[category][itemIdx]}
-                            <button class="remove-btn" on:click={() => removeItem(category, i)}>×</button>
-                        </span>
-                    {/each}
-                </div>
+                <button class="category-header" on:click={() => toggleCategory(category)}>
+                    <span>{categoryLabel(category)}</span>
+                    <div class="header-right">
+                        {#if searchData[category].items.length > 0}
+                            <span class="item-count">{searchData[category].items.length}</span>
+                        {/if}
+                        <span class="chevron" class:open={openCategories.has(category)}>▾</span>
+                    </div>
+                </button>
+                {#if openCategories.has(category)}
+                    <div class="category-content" transition:slide={{ duration: 150 }}>
+                        <div class="weight-row">
+                            <label for="{category}-weight" class="weight-label">Weight</label>
+                            <input id="{category}-weight" type="range" min="0.1" max="1" step="0.1" bind:value={searchData[category].weight} />
+                            <span class="weight-val">{searchData[category].weight}</span>
+                        </div>
+                        <div class="input-row">
+                            <label for="{category}-input" class="sr-only">Add {categoryLabel(category)}</label>
+                            <input
+                                id="{category}-input"
+                                type="text"
+                                bind:value={searchData[category].currentInput}
+                                on:keydown={(e) => handleKeydown(e, category)}
+                                placeholder={`Add ${categoryLabel(category).toLowerCase()}...`}
+                                list="{category}-list"
+                            />
+                            <button class="add-btn" on:click={() => addItem(category)}>+</button>
+                        </div>
+                        <div class="tags">
+                            {#each searchData[category].items as itemIdx, i}
+                                <span class="tag">
+                                    {validArrays[category][itemIdx]}
+                                    <button class="remove-btn" on:click={() => removeItem(category, i)}>×</button>
+                                </span>
+                            {/each}
+                        </div>
+                    </div>
+                {/if}
             </div>
         {/each}
     </div>
@@ -223,39 +250,10 @@
 }
 
 .search-panel.collapsed .categories {
-    overflow-y: auto;
     flex: 1;
     min-height: 0;
-    gap: 8px;
-}
-
-.search-panel.collapsed .category-block {
-    padding: 10px;
-}
-
-.search-panel.collapsed .header-row {
-    flex-wrap: wrap;
     gap: 6px;
-    margin-bottom: 6px;
-}
-
-.search-panel.collapsed .header-row label {
-    flex: 0 0 100%;
-    font-size: 13px;
-}
-
-.search-panel.collapsed .header-row input[type="range"] {
-    flex: 1;
-    min-width: 0;
-}
-
-.search-panel.collapsed .weight-val {
-    font-size: 13px;
-    min-width: 24px;
-}
-
-.search-panel.collapsed .input-row {
-    margin-bottom: 6px;
+    overflow: visible;
 }
 
 .search-panel.collapsed .search-btn {
@@ -280,29 +278,81 @@ h2 {
 
 .category-block {
     background-color: #222;
-    padding: 15px;
     border-radius: 8px;
     border: 1px solid #444;
+    overflow: hidden;
 }
 
-.header-row {
+.category-header {
+    width: 100%;
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
-}
-
-.header-row label {
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: none;
+    border: none;
     color: #fff;
     font-weight: bold;
-    flex-grow: 1;
-    text-transform: capitalize;
+    font-size: 15px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.category-header:hover {
+    background-color: #2a2a2a;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.item-count {
+    background-color: #8b0000;
+    color: #fff;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 1px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+}
+
+.chevron {
+    font-size: 16px;
+    transition: transform 0.15s;
+    display: inline-block;
+    transform: rotate(-90deg);
+}
+
+.chevron.open {
+    transform: rotate(0deg);
+}
+
+.category-content {
+    padding: 0 14px 12px;
+    border-top: 1px solid #333;
+}
+
+.weight-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding-top: 10px;
+}
+
+.weight-label {
+    color: #aaa;
+    font-size: 13px;
+    flex-shrink: 0;
 }
 
 .weight-val {
     color: #fff;
-    font-size: 16px;
-    min-width: 32px;
+    font-size: 13px;
+    min-width: 24px;
 }
 
 .input-row {

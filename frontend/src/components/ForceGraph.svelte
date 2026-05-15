@@ -4,6 +4,7 @@
 
     export let nodes: GraphNode[] = [];
     export let links: GraphLink[] = [];
+    export let graphKey: number = 0;
     export let onNodeClick: ((node: GraphNode) => void) | undefined = undefined;
     export let onCenterClick: (() => void) | undefined = undefined;
 
@@ -19,6 +20,7 @@
     const CTR_W = 144;
     const CTR_H = 216;
 
+
     // Score label below card
     const SCORE_LABEL_GAP = 5;
     const SCORE_LABEL_HEIGHT = 22;
@@ -30,15 +32,15 @@
     const HORIZONTAL_EDGE_PAD = 18;  // extra buffer beyond half-card-width at screen edges
     const TOP_EDGE_PAD = OUT_H / 2 + 20;
     const BOTTOM_EDGE_PAD = OUT_H / 2 + SCORE_LABEL_GAP + SCORE_LABEL_HEIGHT + 20;
-    const INITIAL_JITTER = 50;       // random spread applied to node starting positions
+    const INITIAL_ANGLE_JITTER = 0.25; // radians of random offset added to each evenly-spaced angle
 
     // Simulation tuning
-    const CHARGE_STRENGTH = -2500;
+    const CHARGE_STRENGTH = -4200;
     const CTR_COLLISION_RADIUS = 158;
-    const OUT_COLLISION_RADIUS = 130;
-    const COLLISION_ITERATIONS = 3;
-    const LINK_DISTANCE_SCALE = 500;
-    const LINK_DISTANCE_MIN = 250;
+    const OUT_COLLISION_RADIUS = 148;
+    const COLLISION_ITERATIONS = 5;
+    const LINK_DISTANCE_SCALE = 360;
+    const LINK_DISTANCE_MIN = 230;
     const Y_FORCE_STRENGTH = 0.1;
     const X_FORCE_STRENGTH = 0.01;
     const ALPHA_DECAY = 0.02;
@@ -53,7 +55,7 @@
     // Only restart the simulation when the actual node set or container dimensions change,
     // not on every tick-driven nodes reassignment.
     $: {
-        const key = nodes.map(n => String(n.id)).join(',') + `|${containerWidth ?? 0}|${containerHeight ?? 0}`;
+        const key = nodes.map(n => String(n.id)).join(',') + `|${containerWidth ?? 0}|${containerHeight ?? 0}|${graphKey}`;
         if (key !== lastSimKey && nodes.length > 0 && containerWidth && containerHeight) {
             lastSimKey = key;
             runSimulation();
@@ -72,16 +74,23 @@
         // Reference: a ~800px tall small laptop. Linear scale keeps proportions natural.
         const scale = Math.min(containerWidth - MENU_WIDTH, containerHeight) / 800;
 
-        nodes.forEach(n => {
-            if (n.x === undefined) n.x = centerX + (Math.random() - 0.5) * INITIAL_JITTER;
-            if (n.y === undefined) n.y = centerY + (Math.random() - 0.5) * INITIAL_JITTER;
-        });
-
         const centerNode = nodes.find(n => n.isCenter);
         if (centerNode) {
+            centerNode.x = centerX;
+            centerNode.y = centerY;
             centerNode.fx = centerX;
             centerNode.fy = centerY;
         }
+
+        const outerNodes = nodes.filter(n => !n.isCenter);
+        const initR = LINK_DISTANCE_MIN * scale * 0.9;
+        outerNodes.forEach((n, i) => {
+            if (n.x === undefined) {
+                const angle = (2 * Math.PI * i) / outerNodes.length + (Math.random() - 0.5) * INITIAL_ANGLE_JITTER;
+                n.x = centerX + initR * Math.cos(angle);
+                n.y = centerY + initR * Math.sin(angle);
+            }
+        });
 
         const scores = links.map(l => l.score);
         const minScore = Math.min(...scores);
@@ -168,11 +177,20 @@
                         y={c.y}
                         width={c.w}
                         height={c.h}
-                        fill="#0f172a"
-                        stroke="#475569"
+                        fill="#141414"
+                        stroke="#8b0000"
                         stroke-width="2"
                         rx="8"
                     />
+                    <text
+                        x="0"
+                        y="5"
+                        text-anchor="middle"
+                        font-family="sans-serif"
+                        font-size="13"
+                        font-weight="bold"
+                        fill="#c9a96e"
+                    >Your Inputs</text>
                 {:else}
                     <rect
                         x={c.x}
