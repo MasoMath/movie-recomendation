@@ -12,26 +12,29 @@ from MovieData import MovieData
 def id_semantic_similarity(attr1, attr_series, similarity_matrix, row2=None):
     """
         Calculates the average semantic similarity between sets of attributes.
-        
-        If row2 is provided, returns the mean similarity between attr1 and the
-        attributes at that row index. If row2 is None, returns a list of mean 
-        similarities between attr1 and every entry in attr_series.
+
+        Computes the mean similarity between a source attribute set (attr1) and
+        one or more target attribute sets using a pre-computed similarity
+        lookup matrix.
 
         Args:
-            attr1 (list[int]): A list of integer indices representing
-                attributes (e.g., genre IDs) for the primary item.
-            attr_series (pd.Series): A pandas Series where each element is a
-                list of attribute indices.
-                i.e. The column of genres or keywords
-            similarity_matrix (np.ndarray): A 2D NumPy array containing
-                pairwise similarity scores between individual attributes.
-            row2 (int | None): The index of the target row in attr_series to
-                compare against, or None to compare against all rows.
+            attr1 (list[int]): List of attribute indices (e.g., genre IDs)
+                for the source.
+            attr_series (pd.Series): A Series where each element is a list
+                of attribute indices (e.g., the full 'genres' column).
+            similarity_matrix (np.ndarray): 2D array of pairwise similarity
+                scores between individual attributes.
+            row2 (int, optional): The specific index in attr_series to
+                compare against. If None (default), compares attr1 against
+                every entry in attr_series.
 
         Returns:
-            float | list[float]: A single mean similarity score if row2 is
-                specified, or a list of mean scores for the entire series.
-                Returns np.nan if input attribute lists are empty.
+            float or pd.Series: 
+                - If row2 is an int: Returns a single float (mean similarity).
+                - If row2 is None: Returns a pd.Series of mean similarities
+                    for the entire length of attr_series.
+
+            Returns np.nan if either attribute list in a comparison is empty
     """
     def get_avg_similarity(attr1, attr2):
         """Calculates the mean of the sub-grid formed by two attribute sets."""
@@ -45,41 +48,49 @@ def id_semantic_similarity(attr1, attr_series, similarity_matrix, row2=None):
     else: # ids against all movies
         row_similarities = attr_series.apply(
             lambda x: get_avg_similarity(attr1, x))
-        return row_similarities.tolist()
+        return row_similarities
 
 ## Semantic Similarity (for Genres and Keywords)
 def semantic_similarity(
         ids, row2=None, attribute='genres', 
         similarity_matrix=None, moviedata=None):
     """
-    Returns the similarity between the genres for a pair of movies
-    Args:
-        ids (int, or list[int]): indicies for "movie 1"
-        row2 (int, optional): The specific index of the row of movie 2
-            If None (default), the similarity is calculated between movie 1
-            and all others in the database
-        attribute ('genres' or 'keywords'): which attribute to apply semantic
-            similarity to
-        similarity_matrix (np.array): The loaded semantic similarity matrix
-            If None (default), the similarity matrix is loaded in the function
-        moviedata (custom object): The loaded moviedata object
-            If None (default), the moviedata object is created in the function
-    Note: for repeated function calls, it is reccomended to load in the
-            genre_matrix and moviedata ahead of time and pass the loaded objects
+        Calculates the average semantic similarity for movie attributes
+        (genres or keywords).
 
-    Returns:
-        (list[float]) if row2 == (int): the average semantic similarities of
-            the attribute between movie 1 ids and movie 2
+        This function computes the similarity score between one or more source
+        movies (ids) and either a single target movie (row2) or the entire
+        dataset.
+
+        Args:
+            ids (int or list[int]): Row index (or indices) for the source
+                movie(s).
+            row2 (int, optional): The target row index. If None, compares
+                against all movies in the database.
+            attribute (str): 'genres' or 'keywords'. Defaults to 'genres'.
+            similarity_matrix (np.ndarray, optional): Pre-loaded similarity
+                matrix.
+            moviedata (MovieData, optional): Pre-loaded MovieData object.
+
+        Returns:
+            list[float] or list[pd.Series]: 
+                - If row2 is an int: Returns a list of floats (one per id).
+                - If row2 is None: Returns a list of pandas Series.
+                    Each Series contains similarities between one source ID
+                    and the entire dataset.
+
+        Raises:
+            ValueError: If 'attribute' is not 'genres' or 'keywords'.
         
-        (list[list]) if row2 is None: a list of lists of the average similarity
-            of the attribute between movie 1 ids and all others in the database
-            Note: returned list has been "squeezed" to remove singleton dimension(s)
-
-    Warning: If either movie has no listed genres, the similarity returned is NaN
+        Note:
+            Similarity returns np.nan for any pair where a movie has no
+            attributes
     """
     if attribute not in ['genres', 'keywords']:
         error_text = attribute + ' is not valid semantic attribute.'
         raise ValueError(error_text)
+    
+    if moviedata is None: moviedata = MovieData()
     if not np.any(similarity_matrix): 
         if attribute=='genres':
             similarity_matrix = np.loadtxt(
@@ -87,16 +98,17 @@ def semantic_similarity(
         elif attribute=='keywords':
             similarity_matrix = np.loadtxt(
                 'similarity_matrices/keywords.csv', delimiter=',')
-    if moviedata is None: moviedata = MovieData()
 
     if type(ids) == int: ids = [ids]
     attr_series = moviedata.get_col(attribute)
     similarities = []
+
     for row1 in ids:
         attr1 = attr_series.iloc[row1]
         similarities.append(id_semantic_similarity(
-            attr1, row2, attr_series, similarity_matrix=similarity_matrix))
-    return np.squeeze(similarities)
+            attr1, attr_series, similarity_matrix=similarity_matrix, row2=row2))
+        
+    return similarities
 
 ## Cast & Director Similarity (TF-IDF cosine, ECLAT-style precomputed matrix)
 def cast_director_similarity(row1, row2=None, similarity_matrix=None, moviedata=None):
@@ -199,7 +211,7 @@ def individual_similarity(ids, row=None, col_name='crew', moviedata=None):
         ids (int | list[int]): A single ID or a list of IDs to search for.
         row (int | hashable, optional): Specific row index to compare against
             'ids'. If None, compares against all rows.
-        col_name (str): The column containing lists of IDs. Defaults to 'crew'.
+        col_name (str): The column containing lists of IDs. Defaults to 'crew'
         moviedata (MovieData, optional): Instance providing access to the
             DataFrame.
 
@@ -214,30 +226,38 @@ def individual_similarity(ids, row=None, col_name='crew', moviedata=None):
         compare_list = moviedata.get_data().at[row, col_name]
         return not target_set.isdisjoint(compare_list)
     else:
-        return np.fromiter(
-            (
-                not target_set.isdisjoint(row_list)
-                for row_list in moviedata.get_col(col_name)
-            ),
-            dtype=bool,
-            count=len(moviedata)
-        )
+        moviedata.get_col(col_name).apply(
+            lambda row_list: not target_set.isdisjoint(row_list))
+        # return np.fromiter(
+        #     (
+        #         not target_set.isdisjoint(row_list)
+        #         for row_list in moviedata.get_col(col_name)
+        #     ),
+        #     dtype=bool,
+        #     count=len(moviedata)
+        # )
 
 def categorical_similarity(row1, row2=None, col_name='crew', moviedata=None):
     """
-    Check for overlapping categorical elements between specific rows or across a column.
+        Check for overlapping categorical elements between specific rows or
+        across a column.
 
-    This function acts as a wrapper for individual_similarity, extracting the 
-    col_name from row1 before performing the comparison.
+        This function acts as a wrapper for individual_similarity,
+        extracting the col_name from row1 before performing the comparison.
 
-    Args:
-        row1 (int | hashable): The index of the primary row to extract IDs from.
-        row2 (int | hashable, optional): The index of a second row to compare against.
-        col_name (str): The column containing lists of categories. Defaults to 'crew'.
-        moviedata (MovieData, optional): Instance providing access to the DataFrame.
+        Args:
+            row1 (int | hashable): The index of the primary row to extract IDs
+                from.
+            row2 (int | hashable, optional): The index of a second row to
+                compare against.
+            col_name (str): The column containing lists of categories.
+                Defaults to 'crew'.
+            moviedata (MovieData, optional): Instance providing access to the
+                DataFrame.
 
-    Returns:
-        bool | np.ndarray: Boolean if row2 is provided, otherwise a NumPy array of booleans.
+        Returns:
+            bool | np.ndarray: Boolean if row2 is provided, otherwise a NumPy
+                array of booleans.
     """
     if moviedata is None: moviedata = MovieData()
     target_ids = moviedata.get_data().at[row1, col_name]
@@ -255,9 +275,9 @@ def continuous_similarity(row1, row2=None, attribute='cost', moviedata=None):
         Potentially should be more than 1 function, up to implementation
     '''
     if moviedata is None: moviedata = MovieData()
-    return np.ones(len(moviedata))
+    return pd.Series(1.0, index=moviedata.index)
 
-def aggregate_similarity(weights=None, moviedata=None, DEV_WEIGHTS_SIZE=3, DEV_DUMMY_DATA=None):
+def aggregate_similarity(weights=None, moviedata=None, DEV_WEIGHTS_SIZE=3, DEV_DUMMY_DATA=None, DEV_DEMO=None):
     '''
         TODO: Implement an aggregate similarity funciton for everything
         for specific movie against things
@@ -267,6 +287,8 @@ def aggregate_similarity(weights=None, moviedata=None, DEV_WEIGHTS_SIZE=3, DEV_D
     if moviedata is None: moviedata = MovieData()
     if weights is None: weights = np.ones(DEV_WEIGHTS_SIZE)
     if DEV_DUMMY_DATA is None :
-        return np.ones(len(moviedata))
+        return pd.Series(1.0, index=moviedata.get_data().index)
     else:
         return DEV_DUMMY_DATA
+
+def top_n_indices(data,n): return data.nlargest(n).index
