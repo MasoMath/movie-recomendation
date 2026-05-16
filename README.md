@@ -23,7 +23,6 @@ pip install -r requirements.txt
 ```
 when a new dependency is added to the project
 
-
 ## `MovieData.py` usage
 
 This class loads in and handles most of the tedious backend for having the dataset in a "usable" state. To use the class simply do:
@@ -96,6 +95,12 @@ md.find_movies(['Avatar', 'Star wars'])
 ```
 
 ## Running the app
+
+Once your `venv` is set up. The following needs to be done:
+
+- unzip similarity_matrices.zip to a folder called similarity_matrices
+- run `grab_data.py` to get the .csv data
+- run `build_matrices.py` to build the remaining similarities
 
 From inside `movie-recommendation` run:
 ```bash
